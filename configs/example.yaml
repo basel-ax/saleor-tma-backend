@@ -1,0 +1,23 @@
+http:
+  port: "8080"
+
+saleor:
+  # GraphQL endpoint URL, for example:
+  # apiUrl: "https://your-saleor-instance.com/graphql/"
+  apiUrl: ""
+  # Personal access token or app token with MANAGE_ORDERS and product read permissions.
+  token: ""
+  # Channel ID (global ID string, e.g. from API).
+  channelId: ""
+  # Channel slug (used by product/variant pricing queries).
+  channelSlug: ""
+
+telegram:
+  # Telegram bot token used to verify WebApp init data.
+  botToken: ""
+
+tma:
+  # Optional: category ID under which each child category represents a restaurant.
+  # If empty, the API will expose top-level categories as restaurants.
+  restaurantRootCategoryId: ""
+

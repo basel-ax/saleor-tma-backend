@@ -1,0 +1,73 @@
+"""
+Telegram Mini App BFF GraphQL API.
+
+This schema is intentionally small and tailored to the frontend flows in `frontend-tma.md`.
+"""
+
+type Money {
+  amount: Float!
+  currency: String!
+}
+
+type Restaurant {
+  id: ID!
+  name: String!
+  description: String
+  imageUrl: String
+  tags: [String!]!
+}
+
+type Category {
+  id: ID!
+  restaurantId: ID!
+  name: String!
+  description: String
+  imageUrl: String
+}
+
+"""
+A dish is represented by a Saleor ProductVariant (the `id` field).
+"""
+type Dish {
+  id: ID!
+  productId: ID!
+  restaurantId: ID!
+  categoryId: ID!
+  name: String!
+  description: String!
+  imageUrl: String!
+  price: Money!
+}
+
+type Query {
+  restaurants(search: String): [Restaurant!]!
+  restaurantCategories(restaurantId: ID!): [Category!]!
+  categoryDishes(restaurantId: ID!, categoryId: ID!): [Dish!]!
+}
+
+input CartItemInput {
+  dishId: ID!
+  quantity: Int!
+}
+
+input DeliveryLocationInput {
+  lat: Float!
+  lng: Float!
+}
+
+input PlaceOrderInput {
+  restaurantId: ID!
+  items: [CartItemInput!]!
+  deliveryLocation: DeliveryLocationInput
+  googleMapsUrl: String
+  comment: String
+}
+
+type PlaceOrderPayload {
+  orderId: ID!
+  status: String!
+}
+
+type Mutation {
+  placeOrder(input: PlaceOrderInput!): PlaceOrderPayload!
+}
