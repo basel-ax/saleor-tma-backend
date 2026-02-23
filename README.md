@@ -123,44 +123,9 @@ go run ./server.go
 
 ### Deployment
 
-This service is a stateless Go HTTP API and can be deployed as a container or binary.
+This service is a stateless Go HTTP API and can be deployed as a container, binary, or behind a Cloudflare Worker.
 
-**Containerizing (example)**
-
-Create a minimal `Dockerfile` similar to:
-
-```dockerfile
-FROM golang:1.25 AS build
-WORKDIR /app
-COPY . .
-RUN go build -o /app/server ./server.go
-
-FROM gcr.io/distroless/base-debian12
-WORKDIR /app
-COPY --from=build /app/server /app/server
-COPY configs/example.yaml /app/config.yaml
-ENV CONFIG_PATH=/app/config.yaml
-EXPOSE 8080
-ENTRYPOINT ["/app/server"]
-```
-
-Build and run:
-
-```bash
-docker build -t saleor-tma-backend .
-docker run --rm -p 8080:8080 \
-  -e SALEOR_API_URL="https://your-saleor/graphql/" \
-  -e SALEOR_TOKEN="..." \
-  -e SALEOR_CHANNEL_ID="..." \
-  -e SALEOR_CHANNEL_SLUG="default-channel" \
-  -e TELEGRAM_BOT_TOKEN="..." \
-  saleor-tma-backend
-```
-
-Deploy the container to your platform of choice (Kubernetes, ECS, Cloud Run, etc.). Ensure:
-
-- The service is reachable over HTTPS from the **frontend** (Cloudflare Pages)
-- Environment variables are securely configured
+For detailed deployment instructions (Docker image, Kubernetes/Cloud Run usage, and Cloudflare Worker proxy setup), see **`DEPLOYMENT.md`**.
 
 ---
 
