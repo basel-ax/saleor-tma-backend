@@ -1,3 +1,5 @@
+# saleor-tma-backend
+
 ### Overview
 
 This repository contains a **GraphQL backend-for-frontend (BFF)** written in Go for a **Telegram Mini App** that handles food ordering. It sits between:
@@ -13,8 +15,7 @@ The BFF:
 
 ### High-level architecture
 
-- `cmd/api` – (reserved) alternative entrypoints if needed
-- `server.go` – main application entrypoint (HTTP + GraphQL server)
+- `cmd/api/main.go` – main application entrypoint (HTTP + GraphQL server)
 - `graph/` – GraphQL schema, models, and resolvers (gqlgen)
 - `internal/config` – configuration loading (YAML + env)
 - `internal/telegram` – Telegram WebApp init data verification + context helpers
@@ -110,7 +111,7 @@ Then fill in:
 2. Start the server:
 
 ```bash
-go run ./server.go
+go run ./cmd/api
 ```
 
 3. Open the GraphQL Playground:
@@ -125,7 +126,13 @@ go run ./server.go
 
 This service is a stateless Go HTTP API and can be deployed as a container, binary, or behind a Cloudflare Worker.
 
-For detailed deployment instructions (Docker image, Kubernetes/Cloud Run usage, and Cloudflare Worker proxy setup), see **`DEPLOYMENT.md`**.
+Build the binary:
+
+```bash
+go build -o server ./cmd/api
+```
+
+A `Dockerfile` is provided at the repository root for container builds. For detailed deployment instructions (Docker image, Kubernetes/Cloud Run usage, and Cloudflare Worker proxy setup), see **`DEPLOYMENT.md`**.
 
 ---
 
@@ -157,4 +164,118 @@ The BFF exposes a narrow schema optimized for the mini app. A separate, AI-orien
   - `placeOrder(input: PlaceOrderInput!)` – places an order in Saleor
 
 See `frontend-tma.md` for how each operation maps to the Telegram Mini App screens and flows.
+
+---
+
+### Automated Tests
+
+The test suite requires **no external services** — all Saleor HTTP calls are intercepted by in-process mock servers (`httptest`), and Telegram auth is exercised using locally computed HMAC signatures. Tests run fully offline and deterministically.
+
+#### Run all tests
+
+```bash
+go test ./...
+```
+
+#### Run with verbose output and race detector
+
+```bash
+go test -race ./... -v
+```
+
+#### Run a specific package
+
+```bash
+go test ./internal/telegram/...
+go test ./internal/app/tma/...
+go test ./graph/...
+```
+
+#### Run a single named test
+
+```bash
+go test ./internal/app/tma/... -run TestFullUserWorkflow
+```
+
+#### Regenerate GraphQL code after schema changes
+
+```bash
+go generate ./graph/...
+```
+
+---
+
+#### Test files
+
+| File | Package | What it covers |
+|---|---|---|
+| `internal/telegram/initdata_test.go` | `telegram` | HMAC-SHA256 init-data verification: valid signatures, expiry, missing/invalid fields, tampered payloads, case-insensitive hash |
+| `internal/app/tma/service_test.go` | `tma` | Full user workflow at the service layer; all query/mutation paths; Saleor error propagation; metadata/email conventions |
+| `graph/resolver_test.go` | `graph_test` | Full user workflow at the GraphQL resolver layer; auth guard (unauthenticated access rejected); type mapping from `tma.*` to GraphQL models |
+
+All test files live next to the package they test (`*_test.go` in the same directory).
+
+---
+
+#### Test coverage by area
+
+**Telegram authentication** (`internal/telegram/initdata_test.go`):
+- Valid initData accepted (standard fields, extra fields, zero `maxAge`)
+- Expired `auth_date` rejected (past boundary and just-past boundary)
+- Missing or malformed fields rejected (`hash`, `auth_date`, `user`, `user.id == 0`)
+- Wrong bot token / tampered payload detected (HMAC mismatch)
+- Hash accepted case-insensitively (upper and lower hex)
+
+**Service layer — restaurants** (`TestListRestaurants_*`):
+- Root-category path (`TMA_RESTAURANT_ROOT_CATEGORY_ID` set)
+- Top-level categories path (no root category)
+- Search term forwarded to Saleor
+- Root category missing → error
+- Empty result list
+- Saleor GraphQL protocol error propagated
+- Tags parsed from comma-separated string and from JSON array
+- Missing `backgroundImage` → empty `imageUrl`
+
+**Service layer — categories** (`TestListCategories_*`):
+- Happy path with full field mapping
+- Restaurant category not found → error
+- Empty child list
+- Saleor GraphQL error propagated
+
+**Service layer — dishes** (`TestListDishes_*`):
+- Happy path with full field and price mapping
+- Category not belonging to restaurant → error
+- Category with no parent → error
+- Products without variants silently skipped
+- Saleor error propagated
+
+**Service layer — place order** (`TestPlaceOrder_*`):
+- GPS coordinates variant (full three-step Saleor flow)
+- Google Maps URL variant
+- Multiple cart items in a single order
+- Input validation: missing `restaurantId`, empty `items`, both delivery options, neither delivery option, zero quantity
+- Saleor mutation-level errors at each step (`draftOrderCreate`, `orderLinesCreate`, `draftOrderComplete`)
+- Network error (server unreachable)
+- Customer email convention: `tg-<telegramUserId>@tma.local` present in Saleor request
+- Metadata keys verified: `tma.telegramUserId`, `tma.restaurantId`, `tma.delivery.lat`/`lng` or `tma.delivery.googleMapsUrl`
+
+**Resolver layer** (`graph/resolver_test.go`):
+- Every resolver returns `unauthenticated` error when `telegram.AuthResult` is absent from context
+- `restaurants` — empty list, type mapping, nil description/imageUrl, search forwarding, service error
+- `restaurantCategories` — type mapping, ID forwarding, nil fields, service error
+- `categoryDishes` — full field and price mapping, ID forwarding, service error
+- `placeOrder` — mapping with coordinates, mapping with Google Maps URL, nil comment forwarded as empty, service error
+- **Full workflow integration test** (`TestWorkflow_FullUserFlow`): browses restaurants → selects one → lists categories → lists dishes → places order, verifying each step uses the IDs returned by the previous step
+
+---
+
+#### Test design notes
+
+- **No external dependencies**: tests rely only on Go's standard library (`net/http/httptest`, `crypto/hmac`, etc.).
+- **Two mock strategies**:
+  - `routingServer` — routes GraphQL requests by matching a keyword in the raw query string; suitable for tests that call multiple different operations.
+  - `sequentialServer` — serves pre-canned responses in order; suitable for tests that need strict call sequencing.
+- **Mock TMAService** (`graph/resolver_test.go`): a struct with function-valued fields, allowing per-test behaviour to be injected inline without a framework.
+- **`TMAService` interface** (`graph/resolver.go`): the `Resolver` struct depends on this interface rather than the concrete `*tma.Service`, enabling the resolver tests to run without touching any HTTP client code.
+- **`//go:generate`** directive lives in `graph/generate.go`; run `go generate ./graph/...` after any schema change to rebuild `graph/generated.go` and `graph/model/models_gen.go`.
 

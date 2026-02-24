@@ -14,9 +14,9 @@ type Config struct {
 	} `yaml:"http"`
 
 	Saleor struct {
-		APIURL    string `yaml:"apiUrl"`
-		Token     string `yaml:"token"`
-		ChannelID string `yaml:"channelId"`
+		APIURL      string `yaml:"apiUrl"`
+		Token       string `yaml:"token"`
+		ChannelID   string `yaml:"channelId"`
 		ChannelSlug string `yaml:"channelSlug"`
 	} `yaml:"saleor"`
 
@@ -84,4 +84,3 @@ func Load() (Config, error) {
 
 	return cfg, nil
 }
-

@@ -11,14 +11,14 @@ Create a minimal `Dockerfile` similar to:
 ```dockerfile
 FROM golang:1.25 AS build
 WORKDIR /app
+COPY go.mod go.sum ./
+RUN go mod download
 COPY . .
-RUN go build -o /app/server ./server.go
+RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags="-s -w" -o /app/server ./cmd/api
 
-FROM gcr.io/distroless/base-debian12
+FROM gcr.io/distroless/static-debian12
 WORKDIR /app
 COPY --from=build /app/server /app/server
-COPY configs/example.yaml /app/config.yaml
-ENV CONFIG_PATH=/app/config.yaml
 EXPOSE 8080
 ENTRYPOINT ["/app/server"]
 ```

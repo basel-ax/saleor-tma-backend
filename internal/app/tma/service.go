@@ -10,6 +10,10 @@ import (
 	"saleor-tma-backend/internal/saleor"
 )
 
+// ---------------------------------------------------------------------------
+// Domain types (passed to/from resolvers)
+// ---------------------------------------------------------------------------
+
 type Money struct {
 	Amount   float64
 	Currency string
@@ -53,11 +57,11 @@ type DeliveryLocation struct {
 }
 
 type PlaceOrderInput struct {
-	RestaurantID    string
-	Items           []CartItem
+	RestaurantID     string
+	Items            []CartItem
 	DeliveryLocation *DeliveryLocation
-	GoogleMapsURL   string
-	Comment         string
+	GoogleMapsURL    string
+	Comment          string
 }
 
 type PlaceOrderResult struct {
@@ -65,21 +69,84 @@ type PlaceOrderResult struct {
 	Status  string
 }
 
+// ---------------------------------------------------------------------------
+// Private Saleor response types — reused across multiple query response structs
+// ---------------------------------------------------------------------------
+
+// saleorImage represents a Saleor image node (backgroundImage, thumbnail).
+type saleorImage struct {
+	URL string `json:"url"`
+}
+
+// saleorMeta represents one Saleor metadata key-value pair.
+type saleorMeta struct {
+	Key   string `json:"key"`
+	Value string `json:"value"`
+}
+
+// saleorRestaurantNode is the shape of a Saleor category used as a restaurant.
+// Used by both listRestaurantsFromRoot and listRestaurantsTopLevel.
+type saleorRestaurantNode struct {
+	ID              string       `json:"id"`
+	Name            string       `json:"name"`
+	Description     string       `json:"description"`
+	BackgroundImage *saleorImage `json:"backgroundImage"`
+	Metadata        []saleorMeta `json:"metadata"`
+}
+
+// saleorCategoryNode is the shape of a Saleor child category (dish category).
+type saleorCategoryNode struct {
+	ID              string       `json:"id"`
+	Name            string       `json:"name"`
+	Description     string       `json:"description"`
+	BackgroundImage *saleorImage `json:"backgroundImage"`
+}
+
+// saleorVariant holds a single Saleor product variant with pricing.
+type saleorVariant struct {
+	ID      string `json:"id"`
+	Pricing *struct {
+		Price *struct {
+			Gross struct {
+				Amount   float64 `json:"amount"`
+				Currency string  `json:"currency"`
+			} `json:"gross"`
+		} `json:"price"`
+	} `json:"pricing"`
+}
+
+// saleorProductNode is the shape of a Saleor product returned by the dishes query.
+type saleorProductNode struct {
+	ID          string          `json:"id"`
+	Name        string          `json:"name"`
+	Description string          `json:"description"`
+	Thumbnail   *saleorImage    `json:"thumbnail"`
+	Variants    []saleorVariant `json:"variants"`
+}
+
+// ---------------------------------------------------------------------------
+// Service
+// ---------------------------------------------------------------------------
+
 type Service struct {
-	saleor *saleor.Client
-	channelID   string
-	channelSlug string
+	saleor                   *saleor.Client
+	channelID                string
+	channelSlug              string
 	restaurantRootCategoryID string
 }
 
 func NewService(saleorClient *saleor.Client, channelID, channelSlug, restaurantRootCategoryID string) *Service {
 	return &Service{
-		saleor: saleorClient,
-		channelID: channelID,
-		channelSlug: channelSlug,
+		saleor:                   saleorClient,
+		channelID:                channelID,
+		channelSlug:              channelSlug,
 		restaurantRootCategoryID: restaurantRootCategoryID,
 	}
 }
+
+// ---------------------------------------------------------------------------
+// ListRestaurants
+// ---------------------------------------------------------------------------
 
 func (s *Service) ListRestaurants(ctx context.Context, search string) ([]Restaurant, error) {
 	if s.restaurantRootCategoryID != "" {
@@ -87,6 +154,147 @@ func (s *Service) ListRestaurants(ctx context.Context, search string) ([]Restaur
 	}
 	return s.listRestaurantsTopLevel(ctx, search)
 }
+
+func (s *Service) listRestaurantsFromRoot(ctx context.Context, rootID string) ([]Restaurant, error) {
+	const q = `
+query RestaurantsFromRoot($id: ID!) {
+  category(id: $id) {
+    children(first: 100) {
+      edges {
+        node {
+          id
+          name
+          description
+          backgroundImage { url }
+          metadata { key value }
+        }
+      }
+    }
+  }
+}`
+
+	var resp struct {
+		Category *struct {
+			Children struct {
+				Edges []struct {
+					Node saleorRestaurantNode `json:"node"`
+				} `json:"edges"`
+			} `json:"children"`
+		} `json:"category"`
+	}
+
+	if err := s.saleor.Do(ctx, q, map[string]any{"id": rootID}, &resp); err != nil {
+		return nil, err
+	}
+	if resp.Category == nil {
+		return nil, errors.New("root category not found")
+	}
+
+	nodes := make([]saleorRestaurantNode, 0, len(resp.Category.Children.Edges))
+	for _, e := range resp.Category.Children.Edges {
+		nodes = append(nodes, e.Node)
+	}
+	return mapRestaurants(nodes), nil
+}
+
+func (s *Service) listRestaurantsTopLevel(ctx context.Context, search string) ([]Restaurant, error) {
+	const q = `
+query RestaurantsTopLevel($first: Int!, $level: Int!, $filter: CategoryFilterInput) {
+  categories(first: $first, level: $level, filter: $filter) {
+    edges {
+      node {
+        id
+        name
+        description
+        backgroundImage { url }
+        metadata { key value }
+      }
+    }
+  }
+}`
+
+	var filter map[string]any
+	if strings.TrimSpace(search) != "" {
+		filter = map[string]any{"search": search}
+	}
+
+	var resp struct {
+		Categories struct {
+			Edges []struct {
+				Node saleorRestaurantNode `json:"node"`
+			} `json:"edges"`
+		} `json:"categories"`
+	}
+
+	vars := map[string]any{
+		"first":  100,
+		"level":  0,
+		"filter": filter,
+	}
+	if err := s.saleor.Do(ctx, q, vars, &resp); err != nil {
+		return nil, err
+	}
+
+	nodes := make([]saleorRestaurantNode, 0, len(resp.Categories.Edges))
+	for _, e := range resp.Categories.Edges {
+		nodes = append(nodes, e.Node)
+	}
+	return mapRestaurants(nodes), nil
+}
+
+// mapRestaurants converts a slice of Saleor category nodes to the domain type.
+func mapRestaurants(nodes []saleorRestaurantNode) []Restaurant {
+	out := make([]Restaurant, 0, len(nodes))
+	for _, n := range nodes {
+		img := ""
+		if n.BackgroundImage != nil {
+			img = n.BackgroundImage.URL
+		}
+		out = append(out, Restaurant{
+			ID:          n.ID,
+			Name:        n.Name,
+			Description: n.Description,
+			ImageURL:    img,
+			Tags:        parseTagsFromMetadata(n.Metadata),
+		})
+	}
+	return out
+}
+
+// parseTagsFromMetadata extracts the tma_tags value from Saleor metadata.
+// The value may be a comma-separated string or a JSON array.
+func parseTagsFromMetadata(meta []saleorMeta) []string {
+	for _, m := range meta {
+		if m.Key != "tma_tags" {
+			continue
+		}
+		v := strings.TrimSpace(m.Value)
+		if v == "" {
+			return nil
+		}
+		// Try JSON array first.
+		if strings.HasPrefix(v, "[") {
+			var arr []string
+			if err := json.Unmarshal([]byte(v), &arr); err == nil {
+				return arr
+			}
+		}
+		// Fall back to comma-separated.
+		parts := strings.Split(v, ",")
+		out := make([]string, 0, len(parts))
+		for _, p := range parts {
+			if p = strings.TrimSpace(p); p != "" {
+				out = append(out, p)
+			}
+		}
+		return out
+	}
+	return nil
+}
+
+// ---------------------------------------------------------------------------
+// ListCategories
+// ---------------------------------------------------------------------------
 
 func (s *Service) ListCategories(ctx context.Context, restaurantID string) ([]Category, error) {
 	const q = `
@@ -111,14 +319,7 @@ query RestaurantCategories($id: ID!) {
 			ID       string `json:"id"`
 			Children struct {
 				Edges []struct {
-					Node struct {
-						ID              string `json:"id"`
-						Name            string `json:"name"`
-						Description     string `json:"description"`
-						BackgroundImage *struct {
-							URL string `json:"url"`
-						} `json:"backgroundImage"`
-					} `json:"node"`
+					Node saleorCategoryNode `json:"node"`
 				} `json:"edges"`
 			} `json:"children"`
 		} `json:"category"`
@@ -133,26 +334,33 @@ query RestaurantCategories($id: ID!) {
 
 	out := make([]Category, 0, len(resp.Category.Children.Edges))
 	for _, e := range resp.Category.Children.Edges {
+		n := e.Node
 		img := ""
-		if e.Node.BackgroundImage != nil {
-			img = e.Node.BackgroundImage.URL
+		if n.BackgroundImage != nil {
+			img = n.BackgroundImage.URL
 		}
 		out = append(out, Category{
-			ID:           e.Node.ID,
+			ID:           n.ID,
 			RestaurantID: restaurantID,
-			Name:         e.Node.Name,
-			Description:  e.Node.Description,
+			Name:         n.Name,
+			Description:  n.Description,
 			ImageURL:     img,
 		})
 	}
 	return out, nil
 }
 
+// ---------------------------------------------------------------------------
+// ListDishes
+// ---------------------------------------------------------------------------
+
 func (s *Service) ListDishes(ctx context.Context, restaurantID, categoryID string) ([]Dish, error) {
 	// Validate parent relationship (best-effort, fast).
-	if ok, err := s.categoryIsChildOf(ctx, categoryID, restaurantID); err != nil {
+	ok, err := s.categoryIsChildOf(ctx, categoryID, restaurantID)
+	if err != nil {
 		return nil, err
-	} else if !ok {
+	}
+	if !ok {
 		return nil, errors.New("category does not belong to restaurant")
 	}
 
@@ -181,32 +389,14 @@ query CategoryDishes($first: Int!, $channel: String!, $categoryId: [ID!]) {
 	var resp struct {
 		Products struct {
 			Edges []struct {
-				Node struct {
-					ID          string `json:"id"`
-					Name        string `json:"name"`
-					Description string `json:"description"`
-					Thumbnail   *struct {
-						URL string `json:"url"`
-					} `json:"thumbnail"`
-					Variants []struct {
-						ID      string `json:"id"`
-						Pricing *struct {
-							Price *struct {
-								Gross struct {
-									Amount   float64 `json:"amount"`
-									Currency string  `json:"currency"`
-								} `json:"gross"`
-							} `json:"price"`
-						} `json:"pricing"`
-					} `json:"variants"`
-				} `json:"node"`
+				Node saleorProductNode `json:"node"`
 			} `json:"edges"`
 		} `json:"products"`
 	}
 
 	vars := map[string]any{
-		"first":     100,
-		"channel":   s.channelSlug,
+		"first":      100,
+		"channel":    s.channelSlug,
 		"categoryId": []string{categoryID},
 	}
 	if err := s.saleor.Do(ctx, q, vars, &resp); err != nil {
@@ -215,28 +405,31 @@ query CategoryDishes($first: Int!, $channel: String!, $categoryId: [ID!]) {
 
 	out := make([]Dish, 0, len(resp.Products.Edges))
 	for _, e := range resp.Products.Edges {
-		if len(e.Node.Variants) == 0 {
+		n := e.Node
+		if len(n.Variants) == 0 {
 			continue
 		}
-		v := e.Node.Variants[0]
+		v := n.Variants[0]
+
 		amount := 0.0
 		currency := ""
 		if v.Pricing != nil && v.Pricing.Price != nil {
 			amount = v.Pricing.Price.Gross.Amount
 			currency = v.Pricing.Price.Gross.Currency
 		}
+
 		img := ""
-		if e.Node.Thumbnail != nil {
-			img = e.Node.Thumbnail.URL
+		if n.Thumbnail != nil {
+			img = n.Thumbnail.URL
 		}
 
 		out = append(out, Dish{
 			ID:           v.ID,
-			ProductID:    e.Node.ID,
+			ProductID:    n.ID,
 			RestaurantID: restaurantID,
 			CategoryID:   categoryID,
-			Name:         e.Node.Name,
-			Description:  e.Node.Description,
+			Name:         n.Name,
+			Description:  n.Description,
 			ImageURL:     img,
 			Price: Money{
 				Amount:   amount,
@@ -247,19 +440,72 @@ query CategoryDishes($first: Int!, $channel: String!, $categoryId: [ID!]) {
 	return out, nil
 }
 
-func (s *Service) PlaceOrder(ctx context.Context, telegramUserID int64, input PlaceOrderInput) (PlaceOrderResult, error) {
-	if input.RestaurantID == "" {
-		return PlaceOrderResult{}, errors.New("restaurantId is required")
-	}
-	if len(input.Items) == 0 {
-		return PlaceOrderResult{}, errors.New("items must not be empty")
-	}
-	if (input.DeliveryLocation == nil) == (strings.TrimSpace(input.GoogleMapsURL) == "") {
-		return PlaceOrderResult{}, errors.New("provide exactly one of deliveryLocation or googleMapsUrl")
+// categoryIsChildOf checks whether categoryID is a direct child of expectedParentID.
+func (s *Service) categoryIsChildOf(ctx context.Context, categoryID, expectedParentID string) (bool, error) {
+	const q = `
+query CategoryParent($id: ID!) {
+  category(id: $id) {
+    id
+    parent { id }
+  }
+}`
+
+	var resp struct {
+		Category *struct {
+			Parent *struct {
+				ID string `json:"id"`
+			} `json:"parent"`
+		} `json:"category"`
 	}
 
-	// 1) Create draft order (no lines yet).
-	const createDraft = `
+	if err := s.saleor.Do(ctx, q, map[string]any{"id": categoryID}, &resp); err != nil {
+		return false, err
+	}
+	if resp.Category == nil || resp.Category.Parent == nil {
+		return false, nil
+	}
+	return resp.Category.Parent.ID == expectedParentID, nil
+}
+
+// ---------------------------------------------------------------------------
+// PlaceOrder
+// ---------------------------------------------------------------------------
+
+func (s *Service) PlaceOrder(ctx context.Context, telegramUserID int64, input PlaceOrderInput) (PlaceOrderResult, error) {
+	if err := validatePlaceOrderInput(input); err != nil {
+		return PlaceOrderResult{}, err
+	}
+
+	orderID, err := s.createDraftOrder(ctx, telegramUserID, input)
+	if err != nil {
+		return PlaceOrderResult{}, err
+	}
+
+	if err := s.addOrderLines(ctx, orderID, input.Items); err != nil {
+		return PlaceOrderResult{}, err
+	}
+
+	return s.completeDraftOrder(ctx, orderID)
+}
+
+// validatePlaceOrderInput checks business rules before any Saleor calls.
+func validatePlaceOrderInput(input PlaceOrderInput) error {
+	if input.RestaurantID == "" {
+		return errors.New("restaurantId is required")
+	}
+	if len(input.Items) == 0 {
+		return errors.New("items must not be empty")
+	}
+	hasCoords := input.DeliveryLocation != nil
+	hasMapsURL := strings.TrimSpace(input.GoogleMapsURL) != ""
+	if hasCoords == hasMapsURL {
+		return errors.New("provide exactly one of deliveryLocation or googleMapsUrl")
+	}
+	return nil
+}
+
+func (s *Service) createDraftOrder(ctx context.Context, telegramUserID int64, input PlaceOrderInput) (string, error) {
+	const q = `
 mutation CreateDraft($input: DraftOrderCreateInput!) {
   draftOrderCreate(input: $input) {
     order { id status }
@@ -267,22 +513,9 @@ mutation CreateDraft($input: DraftOrderCreateInput!) {
   }
 }`
 
-	userEmail := fmt.Sprintf("tg-%d@tma.local", telegramUserID)
+	meta := buildOrderMetadata(telegramUserID, input)
 
-	meta := []map[string]string{
-		{"key": "tma.telegramUserId", "value": fmt.Sprintf("%d", telegramUserID)},
-		{"key": "tma.restaurantId", "value": input.RestaurantID},
-	}
-	if input.DeliveryLocation != nil {
-		meta = append(meta,
-			map[string]string{"key": "tma.delivery.lat", "value": fmt.Sprintf("%f", input.DeliveryLocation.Lat)},
-			map[string]string{"key": "tma.delivery.lng", "value": fmt.Sprintf("%f", input.DeliveryLocation.Lng)},
-		)
-	} else {
-		meta = append(meta, map[string]string{"key": "tma.delivery.googleMapsUrl", "value": input.GoogleMapsURL})
-	}
-
-	var createResp struct {
+	var resp struct {
 		DraftOrderCreate struct {
 			Order *struct {
 				ID     string `json:"id"`
@@ -296,27 +529,28 @@ mutation CreateDraft($input: DraftOrderCreateInput!) {
 		} `json:"draftOrderCreate"`
 	}
 
-	createVars := map[string]any{
+	vars := map[string]any{
 		"input": map[string]any{
 			"channelId":    s.channelID,
-			"userEmail":    userEmail,
+			"userEmail":    fmt.Sprintf("tg-%d@tma.local", telegramUserID),
 			"customerNote": input.Comment,
 			"metadata":     meta,
 		},
 	}
-	if err := s.saleor.Do(ctx, createDraft, createVars, &createResp); err != nil {
-		return PlaceOrderResult{}, err
+	if err := s.saleor.Do(ctx, q, vars, &resp); err != nil {
+		return "", err
 	}
-	if createResp.DraftOrderCreate.Order == nil {
-		if len(createResp.DraftOrderCreate.Errors) > 0 {
-			return PlaceOrderResult{}, fmt.Errorf("saleor draftOrderCreate: %s", createResp.DraftOrderCreate.Errors[0].Message)
+	if resp.DraftOrderCreate.Order == nil {
+		if len(resp.DraftOrderCreate.Errors) > 0 {
+			return "", fmt.Errorf("saleor draftOrderCreate: %s", resp.DraftOrderCreate.Errors[0].Message)
 		}
-		return PlaceOrderResult{}, errors.New("saleor draftOrderCreate failed")
+		return "", errors.New("saleor draftOrderCreate: no order returned")
 	}
-	orderID := createResp.DraftOrderCreate.Order.ID
+	return resp.DraftOrderCreate.Order.ID, nil
+}
 
-	// 2) Add order lines.
-	const addLines = `
+func (s *Service) addOrderLines(ctx context.Context, orderID string, items []CartItem) error {
+	const q = `
 mutation AddLines($id: ID!, $input: [OrderLineCreateInput!]!) {
   orderLinesCreate(id: $id, input: $input) {
     order { id }
@@ -324,10 +558,10 @@ mutation AddLines($id: ID!, $input: [OrderLineCreateInput!]!) {
   }
 }`
 
-	lines := make([]map[string]any, 0, len(input.Items))
-	for _, it := range input.Items {
+	lines := make([]map[string]any, 0, len(items))
+	for _, it := range items {
 		if it.Quantity <= 0 {
-			return PlaceOrderResult{}, errors.New("item quantity must be >= 1")
+			return errors.New("item quantity must be >= 1")
 		}
 		lines = append(lines, map[string]any{
 			"variantId": it.DishID,
@@ -335,7 +569,7 @@ mutation AddLines($id: ID!, $input: [OrderLineCreateInput!]!) {
 		})
 	}
 
-	var linesResp struct {
+	var resp struct {
 		OrderLinesCreate struct {
 			Order *struct {
 				ID string `json:"id"`
@@ -345,15 +579,18 @@ mutation AddLines($id: ID!, $input: [OrderLineCreateInput!]!) {
 			} `json:"errors"`
 		} `json:"orderLinesCreate"`
 	}
-	if err := s.saleor.Do(ctx, addLines, map[string]any{"id": orderID, "input": lines}, &linesResp); err != nil {
-		return PlaceOrderResult{}, err
-	}
-	if linesResp.OrderLinesCreate.Order == nil && len(linesResp.OrderLinesCreate.Errors) > 0 {
-		return PlaceOrderResult{}, fmt.Errorf("saleor orderLinesCreate: %s", linesResp.OrderLinesCreate.Errors[0].Message)
-	}
 
-	// 3) Complete draft order.
-	const complete = `
+	if err := s.saleor.Do(ctx, q, map[string]any{"id": orderID, "input": lines}, &resp); err != nil {
+		return err
+	}
+	if resp.OrderLinesCreate.Order == nil && len(resp.OrderLinesCreate.Errors) > 0 {
+		return fmt.Errorf("saleor orderLinesCreate: %s", resp.OrderLinesCreate.Errors[0].Message)
+	}
+	return nil
+}
+
+func (s *Service) completeDraftOrder(ctx context.Context, orderID string) (PlaceOrderResult, error) {
+	const q = `
 mutation CompleteDraft($id: ID!) {
   draftOrderComplete(id: $id) {
     order { id status }
@@ -361,7 +598,7 @@ mutation CompleteDraft($id: ID!) {
   }
 }`
 
-	var completeResp struct {
+	var resp struct {
 		DraftOrderComplete struct {
 			Order *struct {
 				ID     string `json:"id"`
@@ -372,203 +609,35 @@ mutation CompleteDraft($id: ID!) {
 			} `json:"errors"`
 		} `json:"draftOrderComplete"`
 	}
-	if err := s.saleor.Do(ctx, complete, map[string]any{"id": orderID}, &completeResp); err != nil {
+
+	if err := s.saleor.Do(ctx, q, map[string]any{"id": orderID}, &resp); err != nil {
 		return PlaceOrderResult{}, err
 	}
-	if completeResp.DraftOrderComplete.Order == nil {
-		if len(completeResp.DraftOrderComplete.Errors) > 0 {
-			return PlaceOrderResult{}, fmt.Errorf("saleor draftOrderComplete: %s", completeResp.DraftOrderComplete.Errors[0].Message)
+	if resp.DraftOrderComplete.Order == nil {
+		if len(resp.DraftOrderComplete.Errors) > 0 {
+			return PlaceOrderResult{}, fmt.Errorf("saleor draftOrderComplete: %s", resp.DraftOrderComplete.Errors[0].Message)
 		}
-		return PlaceOrderResult{}, errors.New("saleor draftOrderComplete failed")
+		return PlaceOrderResult{}, errors.New("saleor draftOrderComplete: no order returned")
 	}
-
 	return PlaceOrderResult{
-		OrderID: completeResp.DraftOrderComplete.Order.ID,
-		Status:  string(completeResp.DraftOrderComplete.Order.Status),
+		OrderID: resp.DraftOrderComplete.Order.ID,
+		Status:  resp.DraftOrderComplete.Order.Status,
 	}, nil
 }
 
-func (s *Service) listRestaurantsFromRoot(ctx context.Context, rootID string) ([]Restaurant, error) {
-	const q = `
-query RestaurantsFromRoot($id: ID!) {
-  category(id: $id) {
-    children(first: 100) {
-      edges {
-        node {
-          id
-          name
-          description
-          backgroundImage { url }
-          metadata { key value }
-        }
-      }
-    }
-  }
-}`
-	var resp struct {
-		Category *struct {
-			Children struct {
-				Edges []struct {
-					Node struct {
-						ID              string `json:"id"`
-						Name            string `json:"name"`
-						Description     string `json:"description"`
-						BackgroundImage *struct {
-							URL string `json:"url"`
-						} `json:"backgroundImage"`
-						Metadata []struct {
-							Key   string `json:"key"`
-							Value string `json:"value"`
-						} `json:"metadata"`
-					} `json:"node"`
-				} `json:"edges"`
-			} `json:"children"`
-		} `json:"category"`
+// buildOrderMetadata assembles the Saleor metadata slice for a new order.
+func buildOrderMetadata(telegramUserID int64, input PlaceOrderInput) []map[string]string {
+	meta := []map[string]string{
+		{"key": "tma.telegramUserId", "value": fmt.Sprintf("%d", telegramUserID)},
+		{"key": "tma.restaurantId", "value": input.RestaurantID},
 	}
-	if err := s.saleor.Do(ctx, q, map[string]any{"id": rootID}, &resp); err != nil {
-		return nil, err
+	if input.DeliveryLocation != nil {
+		meta = append(meta,
+			map[string]string{"key": "tma.delivery.lat", "value": fmt.Sprintf("%f", input.DeliveryLocation.Lat)},
+			map[string]string{"key": "tma.delivery.lng", "value": fmt.Sprintf("%f", input.DeliveryLocation.Lng)},
+		)
+	} else {
+		meta = append(meta, map[string]string{"key": "tma.delivery.googleMapsUrl", "value": input.GoogleMapsURL})
 	}
-	if resp.Category == nil {
-		return nil, errors.New("root category not found")
-	}
-	return mapRestaurants(resp.Category.Children.Edges), nil
+	return meta
 }
-
-func (s *Service) listRestaurantsTopLevel(ctx context.Context, search string) ([]Restaurant, error) {
-	const q = `
-query RestaurantsTopLevel($first: Int!, $level: Int!, $filter: CategoryFilterInput) {
-  categories(first: $first, level: $level, filter: $filter) {
-    edges {
-      node {
-        id
-        name
-        description
-        backgroundImage { url }
-        metadata { key value }
-      }
-    }
-  }
-}`
-
-	filter := map[string]any(nil)
-	if strings.TrimSpace(search) != "" {
-		filter = map[string]any{"search": search}
-	}
-
-	var resp struct {
-		Categories struct {
-			Edges []struct {
-				Node struct {
-					ID              string `json:"id"`
-					Name            string `json:"name"`
-					Description     string `json:"description"`
-					BackgroundImage *struct {
-						URL string `json:"url"`
-					} `json:"backgroundImage"`
-					Metadata []struct {
-						Key   string `json:"key"`
-						Value string `json:"value"`
-					} `json:"metadata"`
-				} `json:"node"`
-			} `json:"edges"`
-		} `json:"categories"`
-	}
-
-	vars := map[string]any{
-		"first": 100,
-		"level": 0,
-		"filter": filter,
-	}
-	if err := s.saleor.Do(ctx, q, vars, &resp); err != nil {
-		return nil, err
-	}
-	return mapRestaurants(resp.Categories.Edges), nil
-}
-
-func mapRestaurants(edges []struct {
-	Node struct {
-		ID              string `json:"id"`
-		Name            string `json:"name"`
-		Description     string `json:"description"`
-		BackgroundImage *struct {
-			URL string `json:"url"`
-		} `json:"backgroundImage"`
-		Metadata []struct {
-			Key   string `json:"key"`
-			Value string `json:"value"`
-		} `json:"metadata"`
-	} `json:"node"`
-}) []Restaurant {
-	out := make([]Restaurant, 0, len(edges))
-	for _, e := range edges {
-		img := ""
-		if e.Node.BackgroundImage != nil {
-			img = e.Node.BackgroundImage.URL
-		}
-		tags := parseTagsFromMetadata(e.Node.Metadata)
-		out = append(out, Restaurant{
-			ID:          e.Node.ID,
-			Name:        e.Node.Name,
-			Description: e.Node.Description,
-			ImageURL:    img,
-			Tags:        tags,
-		})
-	}
-	return out
-}
-
-func parseTagsFromMetadata(meta []struct {
-	Key   string `json:"key"`
-	Value string `json:"value"`
-}) []string {
-	for _, m := range meta {
-		if m.Key != "tma_tags" {
-			continue
-		}
-		v := strings.TrimSpace(m.Value)
-		if v == "" {
-			return nil
-		}
-		var arr []string
-		if strings.HasPrefix(v, "[") {
-			if err := json.Unmarshal([]byte(v), &arr); err == nil {
-				return arr
-			}
-		}
-		parts := strings.Split(v, ",")
-		out := make([]string, 0, len(parts))
-		for _, p := range parts {
-			p = strings.TrimSpace(p)
-			if p != "" {
-				out = append(out, p)
-			}
-		}
-		return out
-	}
-	return nil
-}
-
-func (s *Service) categoryIsChildOf(ctx context.Context, categoryID, expectedParentID string) (bool, error) {
-	const q = `
-query CategoryParent($id: ID!) {
-  category(id: $id) {
-    id
-    parent { id }
-  }
-}`
-	var resp struct {
-		Category *struct {
-			Parent *struct {
-				ID string `json:"id"`
-			} `json:"parent"`
-		} `json:"category"`
-	}
-	if err := s.saleor.Do(ctx, q, map[string]any{"id": categoryID}, &resp); err != nil {
-		return false, err
-	}
-	if resp.Category == nil || resp.Category.Parent == nil {
-		return false, nil
-	}
-	return resp.Category.Parent.ID == expectedParentID, nil
-}
-

@@ -31,8 +31,6 @@ type AuthResult struct {
 var ErrInvalidInitData = errors.New("invalid telegram init data")
 
 func VerifyInitData(ctx context.Context, initData string, botToken string, maxAge time.Duration) (AuthResult, error) {
-	_ = ctx
-
 	values, err := url.ParseQuery(initData)
 	if err != nil {
 		return AuthResult{}, fmt.Errorf("%w: parse query: %v", ErrInvalidInitData, err)
@@ -94,4 +92,3 @@ func VerifyInitData(ctx context.Context, initData string, botToken string, maxAg
 		AuthDate: authDate,
 	}, nil
 }
-

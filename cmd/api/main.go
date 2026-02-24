@@ -33,36 +33,39 @@ func main() {
 	}
 
 	saleorClient := saleor.NewClient(cfg.Saleor.APIURL, cfg.Saleor.Token)
-	tmaService := tma.NewService(saleorClient, cfg.Saleor.ChannelID, cfg.Saleor.ChannelSlug, cfg.TMA.RestaurantRootCategoryID)
+	tmaService := tma.NewService(
+		saleorClient,
+		cfg.Saleor.ChannelID,
+		cfg.Saleor.ChannelSlug,
+		cfg.TMA.RestaurantRootCategoryID,
+	)
 
-	srv := handler.New(graph.NewExecutableSchema(graph.Config{
+	gqlSrv := handler.New(graph.NewExecutableSchema(graph.Config{
 		Resolvers: &graph.Resolver{
 			TMA: tmaService,
 		},
 	}))
 
-	srv.AddTransport(transport.Options{})
-	srv.AddTransport(transport.GET{})
-	srv.AddTransport(transport.POST{})
+	gqlSrv.AddTransport(transport.Options{})
+	gqlSrv.AddTransport(transport.GET{})
+	gqlSrv.AddTransport(transport.POST{})
 
-	srv.SetQueryCache(lru.New[*ast.QueryDocument](1000))
+	gqlSrv.SetQueryCache(lru.New[*ast.QueryDocument](1000))
 
-	srv.Use(extension.Introspection{})
-	srv.Use(extension.AutomaticPersistedQuery{
+	gqlSrv.Use(extension.Introspection{})
+	gqlSrv.Use(extension.AutomaticPersistedQuery{
 		Cache: lru.New[string](100),
 	})
 
 	mux := http.NewServeMux()
 	mux.Handle("/", playground.Handler("GraphQL playground", "/query"))
-	mux.Handle("/query", srv)
+	mux.Handle("/query", gqlSrv)
 
 	authMw := httptransport.TelegramAuthMiddleware{
 		BotToken: cfg.Telegram.BotToken,
 		MaxAge:   10 * time.Minute,
 	}
 
-	handlerWithAuth := authMw.Wrap(mux)
-
 	log.Printf("connect to http://localhost:%s/ for GraphQL playground", port)
-	log.Fatal(http.ListenAndServe(":"+port, handlerWithAuth))
+	log.Fatal(http.ListenAndServe(":"+port, authMw.Wrap(mux)))
 }

@@ -7,8 +7,6 @@ package graph
 
 import (
 	"context"
-	"fmt"
-
 	"saleor-tma-backend/graph/model"
 	"saleor-tma-backend/internal/app/tma"
 	"saleor-tma-backend/internal/telegram"
@@ -79,17 +77,15 @@ func (r *queryResolver) Restaurants(ctx context.Context, search *string) ([]*mod
 	if err != nil {
 		return nil, err
 	}
+
 	out := make([]*model.Restaurant, 0, len(rs))
 	for _, r := range rs {
-		rCopy := r
-		desc := stringPtrOrNil(rCopy.Description)
-		img := stringPtrOrNil(rCopy.ImageURL)
 		out = append(out, &model.Restaurant{
-			ID:          rCopy.ID,
-			Name:        rCopy.Name,
-			Description: desc,
-			ImageURL:    img,
-			Tags:        rCopy.Tags,
+			ID:          r.ID,
+			Name:        r.Name,
+			Description: stringPtrOrNil(r.Description),
+			ImageURL:    stringPtrOrNil(r.ImageURL),
+			Tags:        r.Tags,
 		})
 	}
 	return out, nil
@@ -106,17 +102,15 @@ func (r *queryResolver) RestaurantCategories(ctx context.Context, restaurantID s
 	if err != nil {
 		return nil, err
 	}
+
 	out := make([]*model.Category, 0, len(cs))
 	for _, c := range cs {
-		cCopy := c
-		desc := stringPtrOrNil(cCopy.Description)
-		img := stringPtrOrNil(cCopy.ImageURL)
 		out = append(out, &model.Category{
-			ID:           cCopy.ID,
-			RestaurantID: cCopy.RestaurantID,
-			Name:         cCopy.Name,
-			Description:  desc,
-			ImageURL:     img,
+			ID:           c.ID,
+			RestaurantID: c.RestaurantID,
+			Name:         c.Name,
+			Description:  stringPtrOrNil(c.Description),
+			ImageURL:     stringPtrOrNil(c.ImageURL),
 		})
 	}
 	return out, nil
@@ -136,18 +130,17 @@ func (r *queryResolver) CategoryDishes(ctx context.Context, restaurantID string,
 
 	out := make([]*model.Dish, 0, len(ds))
 	for _, d := range ds {
-		dCopy := d
 		out = append(out, &model.Dish{
-			ID:           dCopy.ID,
-			ProductID:    dCopy.ProductID,
-			RestaurantID: dCopy.RestaurantID,
-			CategoryID:   dCopy.CategoryID,
-			Name:         dCopy.Name,
-			Description:  dCopy.Description,
-			ImageURL:     dCopy.ImageURL,
+			ID:           d.ID,
+			ProductID:    d.ProductID,
+			RestaurantID: d.RestaurantID,
+			CategoryID:   d.CategoryID,
+			Name:         d.Name,
+			Description:  d.Description,
+			ImageURL:     d.ImageURL,
 			Price: &model.Money{
-				Amount:   dCopy.Price.Amount,
-				Currency: dCopy.Price.Currency,
+				Amount:   d.Price.Amount,
+				Currency: d.Price.Currency,
 			},
 		})
 	}
@@ -162,27 +155,3 @@ func (r *Resolver) Query() QueryResolver { return &queryResolver{r} }
 
 type mutationResolver struct{ *Resolver }
 type queryResolver struct{ *Resolver }
-
-var ErrUnauthenticated = fmt.Errorf("unauthenticated")
-
-func stringPtrOrNil(s string) *string {
-	if s == "" {
-		return nil
-	}
-	return &s
-}
-
-// !!! WARNING !!!
-// The code below was going to be deleted when updating resolvers. It has been copied here so you have
-// one last chance to move it out of harms way if you want. There are two reasons this happens:
-//  - When renaming or deleting a resolver the old code will be put in here. You can safely delete
-//    it when you're done.
-//  - You have helper methods in this file. Move them out to keep these resolver files clean.
-/*
-	func (r *mutationResolver) CreateTodo(ctx context.Context, input model.NewTodo) (*model.Todo, error) {
-	panic(fmt.Errorf("not implemented: CreateTodo - createTodo"))
-}
-func (r *queryResolver) Todos(ctx context.Context) ([]*model.Todo, error) {
-	panic(fmt.Errorf("not implemented: Todos - todos"))
-}
-*/
