@@ -1,3 +1,13 @@
+# Phase 7: Security hardening notes
+# ============================================================
+# Error handling:
+#   - All errors return standardized shape: { errors: [{ message, code, field? }] }
+#   - Internal error details never exposed to clients
+#
+# Auth Context:
+#   - error?: string (error message if invalid)
+#   - errorCode?: string (error code if invalid - UNAUTHENTICATED, FORBIDDEN, etc.)
+
 # Phase 2: GraphQL Schema with Auth Context
 # All requests require X-Telegram-Init-Data header
 # AuthContext is propagated to all resolvers

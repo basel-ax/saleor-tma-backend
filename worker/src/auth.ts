@@ -1,6 +1,9 @@
 // Phase 2: Telegram Init Data Validation
 // Validates X-Telegram-Init-Data header and produces AuthContext
 // Aligns with specs/05-telegram-auth.md
+// Phase 7: Enhanced with structured logging and error codes
+
+import { logger, SecurityEvents } from "./logger";
 
 import { AuthContext } from "./contracts";
 
@@ -23,10 +26,11 @@ const TELEGRAM_BOT_TOKEN = typeof globalThis !== 'undefined'
 export function validateInitData(header: string | null): AuthContext {
   // Handle missing header
   if (!header || header.trim().length === 0) {
+    logger.authFailure("missing_header");
     return {
       userId: "",
       valid: false,
-      error: "Missing X-Telegram-Init-Data header",
+      errorCode: "UNAUTHENTICATED",
     };
   }
 
@@ -39,10 +43,11 @@ export function validateInitData(header: string | null): AuthContext {
     const authDate = params.get("auth_date");
     
     if (!hash || !authDate) {
+      logger.authFailure("missing_required_fields");
       return {
         userId: "",
         valid: false,
-        error: "Invalid init data: missing required fields (hash, auth_date)",
+        errorCode: "UNAUTHENTICATED",
       };
     }
 
@@ -52,10 +57,11 @@ export function validateInitData(header: string | null): AuthContext {
     const maxAge = 24 * 60 * 60; // 24 hours in seconds
     
     if (now - authTimestamp > maxAge) {
+      logger.authExpired();
       return {
         userId: "",
         valid: false,
-        error: "Init data expired",
+        errorCode: "UNAUTHENTICATED",
       };
     }
 
@@ -89,17 +95,22 @@ export function validateInitData(header: string | null): AuthContext {
       }
     }
 
+    const userId = params.get("id") || params.get("user_id") || "";
+    
+    logger.authSuccess(userId);
+
     return {
-      userId: params.get("id") || params.get("user_id") || "",
+      userId,
       name,
       language,
       valid: true,
     };
   } catch (error) {
+    logger.authFailure("validation_error");
     return {
       userId: "",
       valid: false,
-      error: `Init data validation error: ${error instanceof Error ? error.message : "Unknown error"}`,
+      errorCode: "UNAUTHENTICATED",
     };
   }
 }

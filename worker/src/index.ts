@@ -1,5 +1,9 @@
 // Phase 2: GraphQL Handler with Auth Context Integration
 // Validates Telegram Init Data and propagates AuthContext to resolvers
+// Phase 7: Enhanced error handling with standardized codes
+
+import { AppError, ErrorCode, unauthorizedError, internalError } from "./errors";
+import { logger } from "./logger";
 
 import { AuthContext, GraphQLContext, PlaceOrderPayload, PlaceOrderInput as PlaceOrderInputType, AddToCartInput, UpdateCartItemInput } from "./contracts";
 import { extractAuthContext } from "./auth";
@@ -47,10 +51,19 @@ function createContext(request: Request): GraphQLContext {
 /**
  * Error response helpers
  */
-function errorResponse(message: string, status: number): Response {
-  return new Response(JSON.stringify({ error: message }), {
-    status,
-    headers: { "Content-Type": "application/json" },
+function errorResponse(error: AppError, requestId?: string): Response {
+  // Log internal error ID for debugging
+  if (error.internalId) {
+    logger.error("request_error", { 
+      errorCode: error.code, 
+      internalId: error.internalId,
+      requestId 
+    });
+  }
+
+  return new Response(JSON.stringify({ errors: [error.toGraphQL()] }), {
+    status: error.statusCode,
+    headers: { "Content-Type": "application/json", "X-Request-Id": requestId || "" },
   });
 }
 
@@ -70,11 +83,13 @@ async function handleRequest(request: Request): Promise<Response> {
 
   // Return 401 if auth is invalid (per specs/05-telegram-auth.md)
   if (!context.auth.valid) {
-    return errorResponse(context.auth.error || "Unauthorized", 401);
+    const requestId = crypto.randomUUID();
+    logger.authFailure(context.auth.errorCode || "unknown", requestId);
+    return errorResponse(unauthorizedError(), requestId);
   }
 
   // Log authenticated user (avoid logging sensitive data in production)
-  console.log(`[Auth] User ${context.auth.userId} authenticated`);
+  logger.authSuccess(context.auth.userId);
 
   // Parse GraphQL request body
   let body: any = {};
@@ -94,12 +109,15 @@ async function handleRequest(request: Request): Promise<Response> {
     const result = await resolveGraphQL(query, variables, context);
     return jsonResponse({ data: result });
   } catch (error) {
-    // GraphQL error handling
-    const message = error instanceof Error ? error.message : "Unknown error";
-    console.error(`[Error] ${message}`);
-    return jsonResponse({
-      errors: [{ message, locations: [], path: [] }],
-    });
+    const requestId = crypto.randomUUID();
+    
+    if (error instanceof AppError) {
+      return errorResponse(error, requestId);
+    }
+
+    logger.error("unhandled_error", { error: error instanceof Error ? error.message : "Unknown" });
+    const internalErr = internalError(requestId);
+    return errorResponse(internalErr, requestId);
   }
 }
 

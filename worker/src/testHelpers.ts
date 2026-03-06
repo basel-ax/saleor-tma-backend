@@ -151,11 +151,11 @@ export function buildAuthContext(overrides: Partial<AuthContext> = {}): AuthCont
 /**
  * Build an invalid AuthContext for testing
  */
-export function buildInvalidAuthContext(error: string = "Invalid auth"): AuthContext {
+export function buildInvalidAuthContext(errorCode: string = "UNAUTHENTICATED"): AuthContext {
   return {
     userId: "",
     valid: false,
-    error,
+    errorCode,
   };
 }
 

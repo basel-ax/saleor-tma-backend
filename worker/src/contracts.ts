@@ -45,7 +45,7 @@ export interface AuthContext {
   name?: string;
   language?: string;
   valid: boolean;
-  error?: string;
+  errorCode?: string;
 }
 
 export interface Restaurant {
