@@ -2,6 +2,11 @@
 # All requests require X-Telegram-Init-Data header
 # AuthContext is propagated to all resolvers
 
+# Phase 4: Place Order Flow (Saleor Integration - Mock)
+# placeOrder mutation creates a mock Saleor draft order
+# Integrates with in-memory cart - cart is cleared after successful order
+# Returns orderId, status, and estimatedDelivery time
+
 # ============================================================
 # Phase 3: Cart Types (In-Memory Cart)
 # ============================================================
@@ -172,4 +177,26 @@ type Mutation {
 # Public API remains the same - only internal storage changes.
 #
 # See: task/phase-3-in-memory-cart-and-state.md
+# ============================================================
+
+# ============================================================
+# Phase 4: Place Order Notes
+# ============================================================
+#
+# placeOrder flow:
+#   1. Validates input (restaurantId, deliveryLocation required)
+#   2. Gets user's cart or uses items from input
+#   3. Creates mock Saleor draft order
+#   4. Returns orderId, status (CREATED), estimatedDelivery
+#   5. Clears cart after successful order
+#
+# Error handling:
+#   - MISSING_RESTAURANT: restaurantId is required
+#   - EMPTY_ORDER: Cart is empty or no items provided
+#   - MISSING_ADDRESS: Delivery address is required
+#   - ORDER_CREATE_FAILED: Saleor order creation failed
+#
+# Migration: Replace mock in saleorOrder.ts with real Saleor API calls.
+#
+# See: task/phase-4-place-order-flow.md
 # ============================================================

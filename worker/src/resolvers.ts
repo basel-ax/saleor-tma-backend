@@ -2,8 +2,9 @@
 // Resolvers receive GraphQLContext with authenticated user info
 // Aligns with specs/05-telegram-auth.md
 
-import { Restaurant, Category, Dish, PlaceOrderInput, PlaceOrderPayload, GraphQLContext, AddToCartInput, UpdateCartItemInput, CartState } from "./contracts";
+import { Restaurant, Category, Dish, PlaceOrderInput, PlaceOrderPayload, GraphQLContext, AddToCartInput, UpdateCartItemInput, CartState, DeliveryLocation } from "./contracts";
 import { getCart, addToCart, updateCartItem, removeFromCart, clearCart, getCartTotal, getCartItemCount } from "./cart";
+import { createSaleorOrder, toPlaceOrderPayload, OrderStatus } from "./saleorOrder";
 
 // Sample data
 const restaurants: Restaurant[] = [
@@ -84,7 +85,9 @@ const queryResolvers = {
 const mutationResolvers = {
   /**
    * Place an order
-   * Uses authenticated user from context.auth for order attribution
+   * Uses cart items and authenticated user from context
+   * Creates a mock Saleor draft order
+   * Clears cart after successful order
    */
   placeOrder: async (_: any, args: { input: PlaceOrderInput }, context: GraphQLContext): Promise<PlaceOrderPayload> => {
     const userId = context.auth.userId;
@@ -93,17 +96,61 @@ const mutationResolvers = {
     
     console.log(`[Resolver] placeOrder by user ${userId} (${userName}, lang: ${userLanguage})`);
     
-    // Validate input (Phase 2: additional validation can be added here)
-    if (!args.input.restaurantId || !args.input.items || args.input.items.length === 0) {
-      throw new Error("Invalid order: restaurantId and items are required");
+    // Validate input
+    if (!args.input.restaurantId) {
+      throw new Error("Restaurant is required");
     }
 
-    // Create order with authenticated user attribution
-    return {
-      orderId: `order_${Date.now()}_${userId}`,
-      status: "CREATED",
-      estimatedDelivery: undefined,
+    // Get user's cart
+    const cart = getCart(userId);
+    
+    // If cart items provided in input, use those; otherwise use cart
+    let orderItems = args.input.items;
+    let orderRestaurantId = args.input.restaurantId;
+    
+    // If no items in input, use cart items
+    if (!orderItems || orderItems.length === 0) {
+      if (cart.items.length === 0) {
+        throw new Error("Cart is empty. Add items to your cart before placing an order.");
+      }
+      
+      // Map cart items to order items
+      orderItems = cart.items.map(item => ({
+        dishId: item.dishId,
+        quantity: item.quantity,
+        notes: undefined,
+      }));
+      orderRestaurantId = cart.restaurantId || args.input.restaurantId;
+    }
+
+    // Validate delivery location
+    if (!args.input.deliveryLocation?.address) {
+      throw new Error("Delivery address is required");
+    }
+
+    // Build order input with cart items
+    const orderInput: PlaceOrderInput = {
+      restaurantId: orderRestaurantId,
+      deliveryLocation: args.input.deliveryLocation,
+      items: orderItems,
+      customerNote: args.input.customerNote,
     };
+
+    // Create mock Saleor order
+    const result = await createSaleorOrder(orderInput, userId, userName, userLanguage);
+    
+    if (!result.success || !result.order) {
+      const errorMsg = result.error || "Failed to create order";
+      console.error(`[Resolver] placeOrder failed for user ${userId}: ${errorMsg}`);
+      throw new Error(errorMsg);
+    }
+
+    // Clear cart after successful order
+    clearCart(userId);
+    console.log(`[Resolver] Cart cleared for user ${userId} after order ${result.order.id}`);
+    
+    // Return GraphQL payload
+    return toPlaceOrderPayload(result.order);
   },
 
   // ============================================================
