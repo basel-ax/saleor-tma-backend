@@ -17,6 +17,13 @@ export interface CartState {
   items: CartItem[];
 }
 
+export interface Cart {
+  restaurantId: string | null;
+  items: CartItem[];
+  total: number;
+  itemCount: number;
+}
+
 export interface AddToCartInput {
   dishId: string;
   quantity: number;
