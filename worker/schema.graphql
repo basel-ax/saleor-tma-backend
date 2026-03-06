@@ -1,0 +1,105 @@
+# Phase 2: GraphQL Schema with Auth Context
+# All requests require X-Telegram-Init-Data header
+# AuthContext is propagated to all resolvers
+
+type Restaurant {
+  id: ID!
+  name: String!
+  categories: [Category!]!
+  deliveryLocations: [DeliveryLocation!]!
+}
+
+type Category {
+  id: ID!
+  name: String!
+}
+
+type Dish {
+  id: ID!
+  name: String!
+  description: String
+  price: Float!
+  categoryId: ID!
+  imageUrl: String
+}
+
+type DeliveryLocation {
+  id: ID!
+  address: String!
+  city: String
+  country: String
+  latitude: Float
+  longitude: Float
+}
+
+input DeliveryLocationInput {
+  id: ID
+  address: String!
+  city: String
+  country: String
+  latitude: Float
+  longitude: Float
+}
+
+input OrderItemInput {
+  dishId: ID!
+  quantity: Int!
+  notes: String
+}
+
+input PlaceOrderInput {
+  restaurantId: ID!
+  deliveryLocation: DeliveryLocationInput!
+  items: [OrderItemInput!]!
+  customerNote: String
+}
+
+type PlaceOrderPayload {
+  orderId: ID!
+  status: String!
+  estimatedDelivery: String
+}
+
+# All queries require authenticated context
+type Query {
+  # Returns all restaurants
+  # AuthContext: userId, name, language available in resolver
+  restaurants: [Restaurant!]!
+  
+  # Returns categories for a restaurant
+  # AuthContext: userId, name, language available in resolver
+  restaurantCategories(restaurantId: ID!): [Category!]!
+  
+  # Returns dishes for a category
+  # AuthContext: userId, name, language available in resolver
+  categoryDishes(categoryId: ID!): [Dish!]!
+}
+
+# All mutations require authenticated context
+type Mutation {
+  # Place an order
+  # AuthContext: userId, name, language attached to order
+  # Errors: 401 if header missing/invalid, 403 if permissions insufficient
+  placeOrder(input: PlaceOrderInput!): PlaceOrderPayload!
+}
+
+# ============================================================
+# Authentication Notes (Phase 2):
+# ============================================================
+# 
+# All GraphQL requests must include the header:
+#   X-Telegram-Init-Data: <telegram-init-data-string>
+#
+# The auth context (AuthContext) is automatically injected:
+#   - userId: string (Telegram user ID)
+#   - name?: string (User's first/last name)
+#   - language?: string (User's language code)
+#   - valid: boolean (whether auth succeeded)
+#   - error?: string (error message if invalid)
+#
+# Error handling:
+#   - 401: Missing or invalid X-Telegram-Init-Data header
+#   - 403: User lacks required permissions
+#
+# See: specs/05-telegram-auth.md
+# ============================================================

@@ -1,0 +1,9 @@
+- Minimal architecture sketch for Cloudflare Worker TS GraphQL API
+- Entry point: worker/src/index.ts
+- GraphQL schema: worker/src/schema.ts
+- Resolvers: worker/src/resolvers.ts
+- Saleor client: worker/src/saleorClient.ts
+- Auth: worker/src/auth.ts
+- Cart: worker/src/cart.ts
+- Utils: worker/src/utils.ts
+- Build config: worker/tsconfig.json, wrangler.toml
