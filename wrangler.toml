@@ -1,11 +1,39 @@
+# Cloudflare Workers Configuration
+# Phase 6: Deployment Scaffolding
+
 name = "tma-graphql-worker"
-type = "javascript"
-workers_dev = true
+main = "worker/src/index.ts"
 compatibility_date = "2026-03-06"
+workers_dev = true
 
+# Build configuration for TypeScript
 [build]
-command = "bash -lc 'npm --prefix worker install && npm --prefix worker run build && cp worker/dist/src/index.js worker/dist/index.js'"
-cwd = "./"
+command = "cd worker && npm install && npm run build"
 
-[build.upload]
-dir = "./worker/dist"
+# Environment variables exposed to the worker
+# These are set via `wrangler secret put` or Cloudflare Dashboard
+[vars]
+# SALEOR_API_URL - GraphQL endpoint for Saleor e-commerce platform
+# SALEOR_TOKEN - API token for Saleor authentication
+# BACKEND_BASE_URL - Base URL for the backend (used for webhooks, redirects)
+# TELEGRAM_BOT_TOKEN - Bot token for HMAC validation of Telegram Init Data
+
+# Production environment
+[env.production]
+name = "tma-graphql-worker-prod"
+
+# Production secrets (set via wrangler secret put)
+# wrangler secret put SALEOR_API_URL
+# wrangler secret put SALEOR_TOKEN
+# wrangler secret put TELEGRAM_BOT_TOKEN
+
+# KV Namespace for persistent cart storage (Phase 3+)
+# Uncomment when enabling KV storage
+# [[kv_namespaces]]
+# binding = "CARTS"
+# id = "your-kv-namespace-id"
+
+# Durable Objects for advanced state management (optional)
+# [[durable_objects.bindings]]
+# name = "TMA_SESSION"
+# class_name = "TmaSession"
