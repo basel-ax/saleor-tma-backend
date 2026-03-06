@@ -2,6 +2,38 @@
 # All requests require X-Telegram-Init-Data header
 # AuthContext is propagated to all resolvers
 
+# ============================================================
+# Phase 3: Cart Types (In-Memory Cart)
+# ============================================================
+type CartItem {
+  dishId: ID!
+  quantity: Int!
+  name: String
+  price: Float
+  currency: String
+}
+
+type Cart {
+  restaurantId: ID
+  items: [CartItem!]!
+  total: Float!
+  itemCount: Int!
+}
+
+input AddToCartInput {
+  dishId: ID!
+  quantity: Int!
+  name: String
+  price: Float
+  currency: String
+  restaurantId: ID!
+}
+
+input UpdateCartItemInput {
+  dishId: ID!
+  quantity: Int!
+}
+
 type Restaurant {
   id: ID!
   name: String!
@@ -73,6 +105,10 @@ type Query {
   # Returns dishes for a category
   # AuthContext: userId, name, language available in resolver
   categoryDishes(categoryId: ID!): [Dish!]!
+  
+  # Phase 3: Returns current user's cart
+  # AuthContext: userId required to identify cart
+  cart: Cart!
 }
 
 # All mutations require authenticated context
@@ -81,6 +117,24 @@ type Mutation {
   # AuthContext: userId, name, language attached to order
   # Errors: 401 if header missing/invalid, 403 if permissions insufficient
   placeOrder(input: PlaceOrderInput!): PlaceOrderPayload!
+  
+  # Phase 3: Add item to cart
+  # AuthContext: userId required to identify cart
+  # Cart switches (restaurant change) clears existing items
+  addToCart(input: AddToCartInput!): Cart!
+  
+  # Phase 3: Update quantity of cart item
+  # AuthContext: userId required
+  # Set quantity to 0 to remove item
+  updateCartItem(input: UpdateCartItemInput!): Cart!
+  
+  # Phase 3: Remove item from cart
+  # AuthContext: userId required
+  removeCartItem(dishId: ID!): Cart!
+  
+  # Phase 3: Clear entire cart
+  # AuthContext: userId required
+  clearCart: Cart!
 }
 
 # ============================================================
@@ -102,4 +156,20 @@ type Mutation {
 #   - 403: User lacks required permissions
 #
 # See: specs/05-telegram-auth.md
+# ============================================================
+
+# ============================================================
+# Cart Notes (Phase 3):
+# ============================================================
+#
+# Cart operations use in-memory storage keyed by Telegram userId.
+# Each user has one cart per session.
+#
+# Restaurant switch: changing restaurants clears the cart.
+# This ensures users don't mix items from different restaurants.
+#
+# Migration: In production, replace in-memory Map with Cloudflare KV.
+# Public API remains the same - only internal storage changes.
+#
+# See: task/phase-3-in-memory-cart-and-state.md
 # ============================================================

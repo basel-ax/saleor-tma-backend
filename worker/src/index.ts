@@ -1,8 +1,9 @@
 // Phase 2: GraphQL Handler with Auth Context Integration
 // Validates Telegram Init Data and propagates AuthContext to resolvers
 
-import { AuthContext, GraphQLContext, PlaceOrderPayload, PlaceOrderInput as PlaceOrderInputType } from "./contracts";
+import { AuthContext, GraphQLContext, PlaceOrderPayload, PlaceOrderInput as PlaceOrderInputType, AddToCartInput, UpdateCartItemInput } from "./contracts";
 import { extractAuthContext } from "./auth";
+import { getCart, addToCart as cartAddToCart, updateCartItem as cartUpdateCartItem, removeFromCart as cartRemoveFromCart, clearCart as cartClearCart, getCartTotal, getCartItemCount } from "./cart";
 
 // Type for resolver arguments including context
 export interface ResolverContext {
@@ -133,6 +134,33 @@ async function resolveGraphQL(
     return { placeOrder: resolvePlaceOrder(input, context) };
   }
 
+  // Phase 3: Cart Query Resolvers
+  if (query.includes("cart(") || query.includes("cart")) {
+    if (!query.includes("addToCart") && !query.includes("updateCartItem") && !query.includes("removeCartItem") && !query.includes("clearCart")) {
+      return { cart: resolveCart(context) };
+    }
+  }
+
+  // Phase 3: Cart Mutation Resolvers
+  if (query.includes("addToCart")) {
+    const input = variables?.input || { dishId: "", quantity: 1, restaurantId: "" };
+    return { addToCart: resolveAddToCart(input, context) };
+  }
+
+  if (query.includes("updateCartItem")) {
+    const input = variables?.input || { dishId: "", quantity: 1 };
+    return { updateCartItem: resolveUpdateCartItem(input, context) };
+  }
+
+  if (query.includes("removeCartItem")) {
+    const dishId = variables?.dishId || "";
+    return { removeCartItem: resolveRemoveCartItem(dishId, context) };
+  }
+
+  if (query.includes("clearCart")) {
+    return { clearCart: resolveClearCart(context) };
+  }
+
   // Unknown operation
   return {};
 }
@@ -166,6 +194,88 @@ function resolvePlaceOrder(input: PlaceOrderInput, context: GraphQLContext): Pla
     orderId: `order_${Date.now()}_${userId}`,
     status: "CREATED",
     estimatedDelivery: undefined,
+  };
+}
+
+// ============================================================
+// Phase 3: Cart Resolver Implementations
+// ============================================================
+
+function resolveCart(context: GraphQLContext): { restaurantId: string | null; items: any[]; total: number; itemCount: number } {
+  const userId = context.auth.userId;
+  console.log(`[Resolver] cart for user ${userId}`);
+  
+  const cart = getCart(userId);
+  const total = getCartTotal(userId);
+  const itemCount = getCartItemCount(userId);
+  
+  return {
+    restaurantId: cart.restaurantId || null,
+    items: cart.items,
+    total,
+    itemCount,
+  };
+}
+
+function resolveAddToCart(input: AddToCartInput, context: GraphQLContext): { restaurantId: string | null; items: any[]; total: number; itemCount: number } {
+  const userId = context.auth.userId;
+  console.log(`[Resolver] addToCart for user ${userId}, dish ${input.dishId}, quantity ${input.quantity}`);
+  
+  const cart = cartAddToCart(userId, input);
+  const total = getCartTotal(userId);
+  const itemCount = getCartItemCount(userId);
+  
+  return {
+    restaurantId: cart.restaurantId || null,
+    items: cart.items,
+    total,
+    itemCount,
+  };
+}
+
+function resolveUpdateCartItem(input: UpdateCartItemInput, context: GraphQLContext): { restaurantId: string | null; items: any[]; total: number; itemCount: number } {
+  const userId = context.auth.userId;
+  console.log(`[Resolver] updateCartItem for user ${userId}, dish ${input.dishId}, quantity ${input.quantity}`);
+  
+  const cart = cartUpdateCartItem(userId, input);
+  const total = getCartTotal(userId);
+  const itemCount = getCartItemCount(userId);
+  
+  return {
+    restaurantId: cart.restaurantId || null,
+    items: cart.items,
+    total,
+    itemCount,
+  };
+}
+
+function resolveRemoveCartItem(dishId: string, context: GraphQLContext): { restaurantId: string | null; items: any[]; total: number; itemCount: number } {
+  const userId = context.auth.userId;
+  console.log(`[Resolver] removeCartItem for user ${userId}, dish ${dishId}`);
+  
+  const cart = cartRemoveFromCart(userId, dishId);
+  const total = getCartTotal(userId);
+  const itemCount = getCartItemCount(userId);
+  
+  return {
+    restaurantId: cart.restaurantId || null,
+    items: cart.items,
+    total,
+    itemCount,
+  };
+}
+
+function resolveClearCart(context: GraphQLContext): { restaurantId: string | null; items: any[]; total: number; itemCount: number } {
+  const userId = context.auth.userId;
+  console.log(`[Resolver] clearCart for user ${userId}`);
+  
+  cartClearCart(userId);
+  
+  return {
+    restaurantId: null,
+    items: [],
+    total: 0,
+    itemCount: 0,
   };
 }
 

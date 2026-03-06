@@ -1,6 +1,36 @@
 // Phase 1: Contract interfaces (TypeScript)
 // Core domain contracts that align with specs/01-api-contract.md
 
+// ============================================================
+// Phase 3: Cart Types (In-Memory Cart)
+// ============================================================
+export interface CartItem {
+  dishId: string;
+  quantity: number;
+  name?: string;
+  price?: number;
+  currency?: string;
+}
+
+export interface CartState {
+  restaurantId?: string | null;
+  items: CartItem[];
+}
+
+export interface AddToCartInput {
+  dishId: string;
+  quantity: number;
+  name?: string;
+  price?: number;
+  currency?: string;
+  restaurantId: string;
+}
+
+export interface UpdateCartItemInput {
+  dishId: string;
+  quantity: number;
+}
+
 // Phase 2: Auth Context Interfaces
 // Telegram authentication context propagated to GraphQL resolvers
 export interface AuthContext {
