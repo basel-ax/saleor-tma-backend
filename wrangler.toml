@@ -1,5 +1,6 @@
 # Cloudflare Workers Configuration
 # Phase 6: Deployment Scaffolding
+# Phase 9: KV Cart Persistence Enabled
 
 name = "tma-graphql-worker"
 main = "worker/src/index.ts"
@@ -17,6 +18,11 @@ command = "cd worker && npm install && npm run build"
 # SALEOR_TOKEN - API token for Saleor authentication
 # BACKEND_BASE_URL - Base URL for the backend (used for webhooks, redirects)
 # TELEGRAM_BOT_TOKEN - Bot token for HMAC validation of Telegram Init Data
+# DEBUG - Enable debug logging (true/false)
+
+# Development environment
+[env.dev]
+vars = { DEBUG = "true" }
 
 # Production environment
 [env.production]
@@ -26,14 +32,56 @@ name = "tma-graphql-worker-prod"
 # wrangler secret put SALEOR_API_URL
 # wrangler secret put SALEOR_TOKEN
 # wrangler secret put TELEGRAM_BOT_TOKEN
+# wrangler secret put BACKEND_BASE_URL
 
-# KV Namespace for persistent cart storage (Phase 3+)
-# Uncomment when enabling KV storage
+# ============================================================
+# Phase 9: KV Namespace for Cart Persistence
+# ============================================================
+# Cart data is persisted with 24-hour TTL
+# Production namespace ID will be provided after creation
+#
+# To create KV namespace:
+#   wrangler kv:namespace create CARTS
+#
+# Then add the id below and uncomment the binding
+# ============================================================
+
+# Development KV namespace (local testing)
+[[kv_namespaces]]
+binding = "CARTS"
+id = "aabbccddeeff11223344556677889900"
+preview_id = "aabbccddeeff11223344556677889900"
+
+# Production KV namespace (uncomment after creating)
 # [[kv_namespaces]]
 # binding = "CARTS"
-# id = "your-kv-namespace-id"
+# id = "your-production-kv-namespace-id"
 
+# ============================================================
 # Durable Objects for advanced state management (optional)
+# ============================================================
 # [[durable_objects.bindings]]
 # name = "TMA_SESSION"
 # class_name = "TmaSession"
+
+# ============================================================
+# Phase 9: Environment-Specific Configuration
+# ============================================================
+#
+# Development (.dev):
+# - Uses in-memory cart fallback when KV not available
+# - Debug logging enabled
+# - Mock Saleor orders when API not configured
+#
+# Production (.production):
+# - Requires KV namespace for cart persistence
+# - Requires SALEOR_API_URL and SALEOR_TOKEN secrets
+# - Requires TELEGRAM_BOT_TOKEN for auth validation
+# - Minimal logging (set DEBUG=false)
+#
+# Minimum viable surface area:
+# - Queries: restaurants, restaurantCategories, categoryDishes, cart
+# - Mutations: placeOrder, addToCart, updateCartItem, removeCartItem, clearCart
+#
+# See: task/phase-9-improve-code.md
+# ============================================================

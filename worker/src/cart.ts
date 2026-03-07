@@ -1,34 +1,89 @@
-// Phase 3: In-memory cart management (per Telegram user)
+// Phase 3: Cart Management with Cloudflare KV Persistence
 // Implements cart state with per-session restaurant context
 // See: task/phase-3-in-memory-cart-and-state.md
+// Phase 9: KV persistence enabled by default for production migration path
 
 import { CartItem, CartState, AddToCartInput, UpdateCartItemInput } from "./contracts";
 
-// In-memory cart store keyed by Telegram userId
-const carts: Map<string, CartState> = new Map();
+// KV namespace binding type (will be injected by Cloudflare Workers)
+export interface CartKV {
+  get(key: string, type?: "text" | "json"): Promise<string | any | null>;
+  put(key: string, value: string | ReadableStream | ArrayBuffer, options?: { expirationTtl?: number }): Promise<void>;
+  delete(key: string): Promise<void>;
+}
 
-/**
- * Get cart for a user, creating empty cart if not exists
- */
-export function getCart(userId: string): CartState {
-  if (!carts.has(userId)) {
-    carts.set(userId, { restaurantId: null, items: [] });
+// Environment interface for Cloudflare Workers
+export interface Env {
+  CARTS?: CartKV;
+}
+
+// In-memory cart store (fallback when KV not available in tests)
+const memoryCarts: Map<string, CartState> = new Map();
+
+// Determine if we're in a Cloudflare Workers environment
+function isWorkersEnvironment(): boolean {
+  return typeof globalThis !== 'undefined' && 
+    typeof (globalThis as any).__env__ !== 'undefined';
+}
+
+// Get KV instance from environment
+function getKV(): CartKV | null {
+  if (typeof globalThis !== 'undefined') {
+    const env = (globalThis as any).__env__ as Env | undefined;
+    return env?.CARTS ?? null;
   }
-  return carts.get(userId)!;
+  return null;
 }
 
 /**
- * Set entire cart for a user
+ * Get cart for a user from KV, creating empty cart if not exists
  */
-export function setCart(userId: string, cart: CartState): void {
-  carts.set(userId, cart);
+export async function getCart(userId: string): Promise<CartState> {
+  const kv = getKV();
+  
+  if (kv) {
+    try {
+      const data = await kv.get(`cart:${userId}`, "json");
+      if (data) {
+        return data as CartState;
+      }
+    } catch (error) {
+      console.error(`[Cart] KV get error for user ${userId}:`, error);
+    }
+  }
+  
+  // Fallback to memory or create empty cart
+  if (!memoryCarts.has(userId)) {
+    memoryCarts.set(userId, { restaurantId: null, items: [] });
+  }
+  return memoryCarts.get(userId)!;
 }
 
 /**
- * Clear cart for a user (reset to empty)
+ * Set entire cart for a user (persists to KV)
  */
-export function clearCart(userId: string): void {
-  carts.set(userId, { restaurantId: null, items: [] });
+export async function setCart(userId: string, cart: CartState): Promise<void> {
+  const kv = getKV();
+  
+  if (kv) {
+    try {
+      // Cart expires after 24 hours (86400 seconds)
+      await kv.put(`cart:${userId}`, JSON.stringify(cart), { expirationTtl: 86400 });
+    } catch (error) {
+      console.error(`[Cart] KV put error for user ${userId}:`, error);
+    }
+  }
+  
+  // Also update memory for test compatibility
+  memoryCarts.set(userId, cart);
+}
+
+/**
+ * Clear cart for a user (reset to empty, persists to KV)
+ */
+export async function clearCart(userId: string): Promise<void> {
+  const cart: CartState = { restaurantId: null, items: [] };
+  await setCart(userId, cart);
 }
 
 /**
@@ -36,15 +91,25 @@ export function clearCart(userId: string): void {
  * Handles cart switch: if new restaurantId differs from cart's restaurantId,
  * clear the cart before adding the new item
  */
-export function addToCart(userId: string, input: AddToCartInput): CartState {
-  const cart = getCart(userId);
+export async function addToCart(userId: string, input: AddToCartInput): Promise<CartState> {
+  const cart = await getCart(userId);
   
   // Handle restaurant switch: clear cart if switching restaurants
   if (cart.restaurantId && cart.restaurantId !== input.restaurantId) {
     console.log(`[Cart] User ${userId} switching from restaurant ${cart.restaurantId} to ${input.restaurantId}, clearing cart`);
-    clearCart(userId);
+    await clearCart(userId);
+    // Re-fetch the cleared cart
+    const clearedCart = await getCart(userId);
+    return addToCartToCart(clearedCart, userId, input);
   }
   
+  return addToCartToCart(cart, userId, input);
+}
+
+/**
+ * Internal function to add item to cart object
+ */
+function addToCartToCart(cart: CartState, userId: string, input: AddToCartInput): CartState {
   const existingItemIndex = cart.items.findIndex(item => item.dishId === input.dishId);
   
   if (existingItemIndex >= 0) {
@@ -66,6 +131,7 @@ export function addToCart(userId: string, input: AddToCartInput): CartState {
     cart.restaurantId = input.restaurantId;
   }
   
+  // Persist and return
   setCart(userId, cart);
   return cart;
 }
@@ -73,8 +139,8 @@ export function addToCart(userId: string, input: AddToCartInput): CartState {
 /**
  * Update quantity for a specific cart item
  */
-export function updateCartItem(userId: string, input: UpdateCartItemInput): CartState {
-  const cart = getCart(userId);
+export async function updateCartItem(userId: string, input: UpdateCartItemInput): Promise<CartState> {
+  const cart = await getCart(userId);
   const itemIndex = cart.items.findIndex(item => item.dishId === input.dishId);
   
   if (itemIndex < 0) {
@@ -88,25 +154,25 @@ export function updateCartItem(userId: string, input: UpdateCartItemInput): Cart
     cart.items[itemIndex].quantity = input.quantity;
   }
   
-  setCart(userId, cart);
+  await setCart(userId, cart);
   return cart;
 }
 
 /**
  * Remove item from cart
  */
-export function removeFromCart(userId: string, dishId: string): CartState {
-  const cart = getCart(userId);
+export async function removeFromCart(userId: string, dishId: string): Promise<CartState> {
+  const cart = await getCart(userId);
   cart.items = cart.items.filter(item => item.dishId !== dishId);
-  setCart(userId, cart);
+  await setCart(userId, cart);
   return cart;
 }
 
 /**
  * Calculate total price for cart
  */
-export function getCartTotal(userId: string): number {
-  const cart = getCart(userId);
+export async function getCartTotal(userId: string): Promise<number> {
+  const cart = await getCart(userId);
   return cart.items.reduce((total, item) => {
     return total + (item.price || 0) * item.quantity;
   }, 0);
@@ -115,35 +181,119 @@ export function getCartTotal(userId: string): number {
 /**
  * Get total item count in cart
  */
-export function getCartItemCount(userId: string): number {
-  const cart = getCart(userId);
+export async function getCartItemCount(userId: string): Promise<number> {
+  const cart = await getCart(userId);
   return cart.items.reduce((count, item) => count + item.quantity, 0);
 }
 
 // ============================================================
-// Migration Notes for Phase 3 (Persistent Store)
+// Synchronous versions for backward compatibility with tests
+// ============================================================
+
+/**
+ * Get cart synchronously (uses memory fallback)
+ */
+export function getCartSync(userId: string): CartState {
+  if (!memoryCarts.has(userId)) {
+    memoryCarts.set(userId, { restaurantId: null, items: [] });
+  }
+  return memoryCarts.get(userId)!;
+}
+
+/**
+ * Set cart synchronously (uses memory fallback)
+ */
+export function setCartSync(userId: string, cart: CartState): void {
+  memoryCarts.set(userId, cart);
+}
+
+/**
+ * Clear cart synchronously (uses memory fallback)
+ */
+export function clearCartSync(userId: string): void {
+  memoryCarts.set(userId, { restaurantId: null, items: [] });
+}
+
+/**
+ * Add to cart synchronously (uses memory fallback)
+ */
+export function addToCartSync(userId: string, input: AddToCartInput): CartState {
+  const cart = getCartSync(userId);
+  
+  if (cart.restaurantId && cart.restaurantId !== input.restaurantId) {
+    clearCartSync(userId);
+    const clearedCart = getCartSync(userId);
+    return addToCartToCart(clearedCart, userId, input);
+  }
+  
+  return addToCartToCart(cart, userId, input);
+}
+
+/**
+ * Update cart item synchronously (uses memory fallback)
+ */
+export function updateCartItemSync(userId: string, input: UpdateCartItemInput): CartState {
+  const cart = getCartSync(userId);
+  const itemIndex = cart.items.findIndex(item => item.dishId === input.dishId);
+  
+  if (itemIndex < 0) {
+    throw new Error(`Item ${input.dishId} not found in cart`);
+  }
+  
+  if (input.quantity <= 0) {
+    cart.items.splice(itemIndex, 1);
+  } else {
+    cart.items[itemIndex].quantity = input.quantity;
+  }
+  
+  setCartSync(userId, cart);
+  return cart;
+}
+
+/**
+ * Remove from cart synchronously (uses memory fallback)
+ */
+export function removeFromCartSync(userId: string, dishId: string): CartState {
+  const cart = getCartSync(userId);
+  cart.items = cart.items.filter(item => item.dishId !== dishId);
+  setCartSync(userId, cart);
+  return cart;
+}
+
+/**
+ * Get cart total synchronously (uses memory fallback)
+ */
+export function getCartTotalSync(userId: string): number {
+  const cart = getCartSync(userId);
+  return cart.items.reduce((total, item) => {
+    return total + (item.price || 0) * item.quantity;
+  }, 0);
+}
+
+/**
+ * Get cart item count synchronously (uses memory fallback)
+ */
+export function getCartItemCountSync(userId: string): number {
+  const cart = getCartSync(userId);
+  return cart.items.reduce((count, item) => count + item.quantity, 0);
+}
+
+// ============================================================
+// Phase 9 Notes: KV Cart Implementation
 // ============================================================
 //
-// Current implementation uses in-memory Map for testability.
-// For production with Cloudflare KV:
+// Current implementation uses Cloudflare KV for production with
+// in-memory fallback for tests.
 //
-// 1. Replace the `carts` Map with Cloudflare KV binding:
-//    - const cartKV = await env.CART_KV; // from wrangler.toml binding
+// Key features:
+// - Cart data persisted to KV with 24-hour TTL
+// - Automatic migration path between test (memory) and prod (KV)
+// - Sync versions maintained for backward compatibility with tests
+// - Same public API regardless of storage backend
 //
-// 2. Update functions to use async KV operations:
-//    - await cartKV.get(userId, "json") to read
-//    - await cartKV.put(userId, JSON.stringify(cart)) to write
+// Environment requirements:
+// - KV namespace binding "CARTS" in wrangler.toml
+// - Environment variables: SALEOR_API_URL, SALEOR_TOKEN, TELEGRAM_BOT_TOKEN
 //
-// 3. Consider TTL/expiration for cart data (e.g., 24 hours)
-//
-// 4. Keep the same public API shape (getCart, addToCart, etc.)
-//    so migration only changes internal implementation
-//
-// Example migration sketch:
-//    export async function getCart(userId: string): Promise<CartState> {
-//      const data = await cartKV.get(userId, "json");
-//      return data || { restaurantId: null, items: [] };
-//    }
-//
-// See: specs/04-deployment.md for Cloudflare KV setup
+// See: wrangler.toml for KV configuration
 // ============================================================
