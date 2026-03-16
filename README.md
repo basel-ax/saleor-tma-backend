@@ -43,9 +43,11 @@ This is the central documentation hub for the Telegram Mini App GraphQL backend 
 
 ### Local Development
 
+> **Note**: This project uses [pnpm](https://pnpm.io/) for dependency management due to link: dependencies in the worker directory. Using `npm install` will cause errors. Please use pnpm instead.
+
 ```bash
-# Install dependencies
-cd worker && npm install
+# Install dependencies (requires pnpm)
+cd worker && pnpm install
 
 # Copy environment template
 cp .dev.vars.example .dev.vars
@@ -54,16 +56,21 @@ cp .dev.vars.example .dev.vars
 wrangler dev
 ```
 
+If you don't have pnpm installed, you can install it globally with:
+```bash
+npm install -g pnpm
+```
+
 GraphQL endpoint: `http://localhost:8787/graphql`
 
 ### Running Tests
 
 ```bash
 # Contract tests with spec-kit
-cd worker && npm test
+cd worker && pnpm test
 
 # Or with custom URL
-SPEC_KIT_BASE_URL=http://localhost:8787 npm test
+SPEC_KIT_BASE_URL=http://localhost:8787 pnpm test
 ```
 
 ### Deployment
