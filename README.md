@@ -59,9 +59,43 @@ wrangler secret put SALEOR_API_URL
 wrangler secret put SALEOR_TOKEN
 wrangler secret put TELEGRAM_BOT_TOKEN
 
-# Deploy
+# Deploy manually
 wrangler deploy
 ```
+
+#### Auto-deploy on Push to Main Branch
+
+To set up automatic deployment when pushing to the main branch:
+
+1. **Connect your GitHub/GitLab repository to Cloudflare:**
+   - Go to Cloudflare Dashboard → Workers & Pages
+   - Select your worker (`tma-graphql-worker` or similar)
+   - Go to "Settings" → "Git integration"
+   - Connect your GitHub/GitLab account and select this repository
+   - Set the production branch to `main`
+   - Set the build command to `npm run build` (if using npm) or `pnpm run build` (if using pnpm)
+   - Set the build output directory to `./worker` (if not already set)
+
+2. **Configure environment variables in Cloudflare Dashboard:**
+   - Go to your worker's "Settings" → "Variables"
+   - Under "Secrets", add:
+     - `SALEOR_API_URL`
+     - `SALEOR_TOKEN`
+     - `TELEGRAM_BOT_TOKEN`
+   - Under "Environment Variables" (if needed):
+     - `BACKEND_BASE_URL` (optional)
+     - `DEBUG` (optional, set to `false` for production)
+
+3. **Enable automatic deployments:**
+   - In the Git integration settings, ensure "Deploy on push to main branch" is enabled
+   - Optionally enable preview deployments for pull requests
+
+4. **Verify the setup:**
+   - Push a commit to the main branch
+   - Cloudflare will automatically build and deploy your worker
+   - Check the deployment logs in the Cloudflare dashboard for any issues
+
+> **Note**: For local development, continue using `wrangler dev` as described in the Development Setup section.
 
 ---
 
