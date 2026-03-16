@@ -4,10 +4,26 @@
 
 This is the central documentation hub for the Telegram Mini App GraphQL backend built on Cloudflare Workers. The backend serves as a BFF (Backend-for-Frontend) between the Telegram Mini App frontend and Saleor's order-management API.
 
+## Current Milestone: v1.0 - Core Features
+
+**Goal:** Complete implementation of all core functionality required for the Telegram Mini App frontend to function according to specifications.
+
+**Status:** Planning Phase - Roadmap defined, implementation underway
+
+**Core Features:**
+- Restaurant browsing with categories and dishes
+- Cart management with single-restaurant constraint
+- Order placement with delivery location support
+- Telegram authentication with proper error handling
+- Saleor integration for order processing
+- Cloudflare KV persistence for production deployment
+
 ## Quick Links
 
 | Category | Documentation |
 |----------|---------------|
+| **Project Planning** | [.planning/PROJECT.md](.planning/PROJECT.md), [.planning/ROADMAP.md](.planning/ROADMAP.md) |
+| **Requirements** | [.planning/REQUIREMENTS.md](.planning/REQUIREMENTS.md), [.planning/STATE.md](.planning/STATE.md) |
 | **Getting Started** | [README.md](README.md), [IMPLEMENTATION.md](IMPLEMENTATION.md) |
 | **Architecture** | [worker/ARCHITECTURE.md](worker/ARCHITECTURE.md) |
 | **API Contract** | [specs/01-api-contract.md](specs/01-api-contract.md) |
@@ -16,6 +32,51 @@ This is the central documentation hub for the Telegram Mini App GraphQL backend 
 | **Environment** | [worker/ENVIRONMENT.md](worker/ENVIRONMENT.md) |
 | **Decision Log** | [DECISION_LOG.md](DECISION_LOG.md) |
 | **Agent Guides** | [AGENTS.md](AGENTS.md) |
+
+---
+
+## Development Setup
+
+### Prerequisites
+- Node.js (latest LTS)
+- Wrangler CLI (`npm install -g wrangler`)
+
+### Local Development
+
+```bash
+# Install dependencies
+cd worker && npm install
+
+# Copy environment template
+cp .dev.vars.example .dev.vars
+
+# Start local dev server
+wrangler dev
+```
+
+GraphQL endpoint: `http://localhost:8787/graphql`
+
+### Running Tests
+
+```bash
+# Contract tests with spec-kit
+cd worker && npm test
+
+# Or with custom URL
+SPEC_KIT_BASE_URL=http://localhost:8787 npm test
+```
+
+### Deployment
+
+```bash
+# Set production secrets
+wrangler secret put SALEOR_API_URL
+wrangler secret put SALEOR_TOKEN
+wrangler secret put TELEGRAM_BOT_TOKEN
+
+# Deploy
+wrangler deploy
+```
 
 ---
 
@@ -141,51 +202,7 @@ Telegram Mini App
 - **Telegram Authentication**: Validates `X-Telegram-Init-Data` header
 - **In-Memory Cart**: Per-user cart with single-restaurant constraint
 - **Saleor Integration**: Thin HTTP client for order management
-
----
-
-## Development Setup
-
-### Prerequisites
-- Node.js (latest LTS)
-- Wrangler CLI (`npm install -g wrangler`)
-
-### Local Development
-
-```bash
-# Install dependencies
-cd worker && npm install
-
-# Copy environment template
-cp .dev.vars.example .dev.vars
-
-# Start local dev server
-wrangler dev
-```
-
-GraphQL endpoint: `http://localhost:8787/graphql`
-
-### Running Tests
-
-```bash
-# Contract tests with spec-kit
-cd worker && npm test
-
-# Or with custom URL
-SPEC_KIT_BASE_URL=http://localhost:8787 npm test
-```
-
-### Deployment
-
-```bash
-# Set production secrets
-wrangler secret put SALEOR_API_URL
-wrangler secret put SALEOR_TOKEN
-wrangler secret put TELEGRAM_BOT_TOKEN
-
-# Deploy
-wrangler deploy
-```
+- **Production Ready**: Cloudflare KV persistence and Wrangler deployment
 
 ---
 
@@ -193,4 +210,5 @@ wrangler deploy
 
 - Review [DECISION_LOG.md](DECISION_LOG.md) for architectural decisions
 - Check [worker/ARCHITECTURE.md](worker/ARCHITECTURE.md) for detailed system design
-- See [task/phase-9-improve-code.md](task/phase-9-improve-code.md) for future improvements
+- See [.planning/ROADMAP.md](.planning/ROADMAP.md) for v1.0 milestone progress
+- See [task/phase-9-improve-code.md](task/phase-9-improve-code.md) for current improvements

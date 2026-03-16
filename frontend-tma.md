@@ -17,7 +17,7 @@ Build a **Telegram Mini App (Telegram WebApp)** for ordering dishes from restaur
 - **Single-restaurant cart**: cart items must belong to exactly **one restaurant**.
 - **Switching restaurants** while cart has items from another restaurant:
   - Show a confirmation message:
-    **“Your cart will be cleared and a new cart will be created for the selected restaurant.”**
+    **”Your cart will be cleared and a new cart will be created for the selected restaurant.”**
   - Actions: **Cancel** / **Continue**
   - If **Continue** → clear cart completely → set new `restaurantId` → navigate into new restaurant.
 
@@ -131,6 +131,8 @@ Build a **Telegram Mini App (Telegram WebApp)** for ordering dishes from restaur
 - **Cart**
   - `restaurantId: string`
   - `items: CartItem[]`
+  - `total: number`
+  - `itemCount: number`
   - `updatedAt: string` (ISO)
 
 - **CartItem**
@@ -151,53 +153,102 @@ Build a **Telegram Mini App (Telegram WebApp)** for ordering dishes from restaur
 
 ---
 
-### 6) Backend Integration (Assumptions + Contract Shape)
-Backend is authoritative for prices/availability/totals.
+### 6) Backend Integration (Updated Contract)
+
+The backend is a Cloudflare Worker with a GraphQL API that implements all the required functionality. The frontend communicates with the backend using GraphQL queries and mutations.
 
 #### 6.1 Auth / Identity (Telegram WebApp)
 - Frontend obtains Telegram WebApp init data and sends it to backend on each request.
-- Recommended header: `X-Telegram-Init-Data: <initData>` (exact name can be adapted to backend).
+- Header: `X-Telegram-Init-Data: <initData>` (mandatory for all requests)
 
-#### 6.2 Minimal API endpoints (suggested)
-- `GET /restaurants`
-  - returns `Restaurant[]`
-- `GET /restaurants/:restaurantId/categories`
-  - returns `Category[]`
-- `GET /restaurants/:restaurantId/categories/:categoryId/dishes`
-  - returns `Dish[]`
-- `POST /orders`
-  - request body:
+#### 6.2 GraphQL API Endpoints
+- **Endpoint**: `/graphql`
+- **Method**: POST (with query in body)
 
-```json
-{
-  "restaurantId": "string",
-  "items": [{ "dishId": "string", "quantity": 1 }],
-  "deliveryLocation": { "latitude": 0.0, "longitude": 0.0 },
-  "googleMapsUrl": null,
-  "comment": "string or null"
-}
-```
+#### 6.3 Available Queries
+- `restaurants`: Returns `Restaurant[]`
+- `restaurantCategories(restaurantId: ID!)`: Returns `Category[]` for a specific restaurant
+- `categoryDishes(categoryId: ID!)`: Returns `Dish[]` for a specific category
+- `cart`: Returns current user's `Cart` (with items, total, count)
 
-Or (Google Maps link mode):
+#### 6.4 Available Mutations
+- `addToCart(input: AddToCartInput!)`: Add item to cart, returns updated `Cart`
+- `updateCartItem(input: UpdateCartItemInput!)`: Update item quantity, returns updated `Cart`
+- `removeCartItem(dishId: ID!)`: Remove item from cart, returns updated `Cart`
+- `clearCart`: Clear entire cart, returns empty `Cart`
+- `placeOrder(input: PlaceOrderInput!)`: Create order, returns `PlaceOrderPayload`
 
-```json
-{
-  "restaurantId": "string",
-  "items": [{ "dishId": "string", "quantity": 1 }],
-  "deliveryLocation": null,
-  "googleMapsUrl": "https://maps.google.com/?q=...",
-  "comment": "string or null"
-}
-```
+#### 6.5 Input Types
+- **AddToCartInput**:
+  ```graphql
+  input AddToCartInput {
+    dishId: ID!
+    quantity: Int!
+    name: String
+    price: Float
+    currency: String
+    restaurantId: ID!
+  }
+  ```
 
-- response success:
+- **UpdateCartItemInput**:
+  ```graphql
+  input UpdateCartItemInput {
+    dishId: ID!
+    quantity: Int!
+  }
+  ```
 
-```json
-{ "orderId": "string", "status": "created" }
-```
+- **PlaceOrderInput**:
+  ```graphql
+  input PlaceOrderInput {
+    restaurantId: ID!
+    deliveryLocation: DeliveryLocationInput!
+    items: [OrderItemInput!]!
+    customerNote: String
+  }
+  ```
 
-- response error:
-  - `{ "message": "human readable", "code": "string" }`
+- **DeliveryLocationInput**:
+  ```graphql
+  input DeliveryLocationInput {
+    id: ID
+    address: String!
+    city: String
+    country: String
+    latitude: Float
+    longitude: Float
+  }
+  ```
+
+- **OrderItemInput**:
+  ```graphql
+  input OrderItemInput {
+    dishId: ID!
+    quantity: Int!
+    notes: String
+  }
+  ```
+
+#### 6.6 Response Types
+- **Cart**:
+  ```graphql
+  type Cart {
+    restaurantId: ID
+    items: [CartItem!]!
+    total: Float!
+    itemCount: Int!
+  }
+  ```
+
+- **PlaceOrderPayload**:
+  ```graphql
+  type PlaceOrderPayload {
+    orderId: ID!
+    status: String!
+    estimatedDelivery: String
+  }
+  ```
 
 ---
 
@@ -206,6 +257,7 @@ Or (Google Maps link mode):
 - Respect Telegram theme (dark/light) if feasible.
 - Provide clear back navigation (Telegram BackButton integration recommended).
 - Clear, user-friendly error states: loading, empty, retry.
+- Optimistic UI updates for cart operations when possible.
 
 ---
 
@@ -217,6 +269,9 @@ Or (Google Maps link mode):
   - Basic URL validation client-side; backend validates definitively.
 - **Backend errors**:
   - Show message; allow retry; do not lose cart.
+- **Network failures**:
+  - Retry failed operations with exponential backoff.
+  - Cache data locally when offline.
 
 ---
 
@@ -246,3 +301,6 @@ Or (Google Maps link mode):
 - Checkout requires **geolocation OR Google Maps link** and blocks submission otherwise.
 - Order submission hits backend and shows success/failure; cart clears on success.
 - App is deployable as a static frontend to Cloudflare Pages; backend is external.
+- GraphQL API provides all required functionality as specified in Section 6.
+- All operations include proper error handling and user feedback.
+- Authentication with Telegram Init Data works for all backend requests.
