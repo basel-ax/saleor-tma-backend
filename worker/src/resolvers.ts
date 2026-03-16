@@ -4,7 +4,7 @@
 
 import { Restaurant, Category, Dish, PlaceOrderInput, PlaceOrderPayload, GraphQLContext, AddToCartInput, UpdateCartItemInput, CartState, DeliveryLocation } from "./contracts";
 import { logger } from "./logger";
-import { getCart, addToCart, updateCartItem, removeFromCart, clearCart, getCartTotal, getCartItemCount } from "./cart";
+import { getCartSync as getCart, addToCartSync as addToCart, updateCartItemSync as updateCartItem, removeFromCartSync as removeFromCart, clearCartSync as clearCart, getCartTotalSync as getCartTotal, getCartItemCountSync as getCartItemCount } from "./cart";
 import { createSaleorOrder, toPlaceOrderPayload, OrderStatus } from "./saleorOrder";
 import { forbiddenError } from "./errors";
 import { requireRead, requireWrite } from "./auth";

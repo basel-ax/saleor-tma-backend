@@ -7,7 +7,7 @@ import { logger } from "./logger";
 
 import { AuthContext, GraphQLContext, PlaceOrderPayload, PlaceOrderInput as PlaceOrderInputType, AddToCartInput, UpdateCartItemInput } from "./contracts";
 import { extractAuthContext } from "./auth";
-import { getCartSync, addToCart as cartAddToCartSync, updateCartItem as cartUpdateCartItemSync, removeFromCart as cartRemoveFromCartSync, clearCartSync, getCartTotalSync, getCartItemCountSync } from "./cart";
+import { getCartSync, addToCartSync, updateCartItemSync, removeFromCartSync, clearCartSync, getCartTotalSync, getCartItemCountSync } from "./cart";
 
 // Type for resolver arguments including context
 export interface ResolverContext {
@@ -239,7 +239,7 @@ function resolveAddToCart(input: AddToCartInput, context: GraphQLContext): { res
   const userId = context.auth.userId;
   console.log(`[Resolver] addToCart for user ${userId}, dish ${input.dishId}, quantity ${input.quantity}`);
   
-  const cart = cartAddToCartSync(userId, input);
+  const cart = addToCartSync(userId, input);
   const total = getCartTotalSync(userId);
   const itemCount = getCartItemCountSync(userId);
   
@@ -255,7 +255,7 @@ function resolveUpdateCartItem(input: UpdateCartItemInput, context: GraphQLConte
   const userId = context.auth.userId;
   console.log(`[Resolver] updateCartItem for user ${userId}, dish ${input.dishId}, quantity ${input.quantity}`);
   
-  const cart = cartUpdateCartItemSync(userId, input);
+  const cart = updateCartItemSync(userId, input);
   const total = getCartTotalSync(userId);
   const itemCount = getCartItemCountSync(userId);
   
@@ -271,7 +271,7 @@ function resolveRemoveCartItem(dishId: string, context: GraphQLContext): { resta
   const userId = context.auth.userId;
   console.log(`[Resolver] removeCartItem for user ${userId}, dish ${dishId}`);
   
-  const cart = cartRemoveFromCartSync(userId, dishId);
+  const cart = removeFromCartSync(userId, dishId);
   const total = getCartTotalSync(userId);
   const itemCount = getCartItemCountSync(userId);
   

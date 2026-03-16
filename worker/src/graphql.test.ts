@@ -30,7 +30,7 @@ const BASE_URL = env.SPEC_KIT_BASE_URL || 'http://localhost:8787';
 
 interface GraphQLResponse<T = any> {
   data?: T;
-  errors?: Array<{ message: string }>;
+  errors?: Array<{ message: string; code?: string }>;
 }
 
 async function graphqlRequest<T = any>(
