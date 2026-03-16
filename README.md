@@ -4,36 +4,14 @@
 
 This is the central documentation hub for the Telegram Mini App GraphQL backend built on Cloudflare Workers. The backend serves as a BFF (Backend-for-Frontend) between the Telegram Mini App frontend and Saleor's order-management API.
 
-## Current Milestone: v1.0 - Core Features
+## Core Features
 
-**Goal:** Complete implementation of all core functionality required for the Telegram Mini App frontend to function according to specifications.
-
-**Status:** Planning Phase - Roadmap defined, implementation underway
-
-**Core Features:**
 - Restaurant browsing with categories and dishes
 - Cart management with single-restaurant constraint
 - Order placement with delivery location support
 - Telegram authentication with proper error handling
 - Saleor integration for order processing
 - Cloudflare KV persistence for production deployment
-
-## Quick Links
-
-| Category | Documentation |
-|----------|---------------|
-| **Project Planning** | [.planning/PROJECT.md](.planning/PROJECT.md), [.planning/ROADMAP.md](.planning/ROADMAP.md) |
-| **Requirements** | [.planning/REQUIREMENTS.md](.planning/REQUIREMENTS.md), [.planning/STATE.md](.planning/STATE.md) |
-| **Getting Started** | [README.md](README.md), [IMPLEMENTATION.md](IMPLEMENTATION.md) |
-| **Architecture** | [worker/ARCHITECTURE.md](worker/ARCHITECTURE.md) |
-| **API Contract** | [specs/01-api-contract.md](specs/01-api-contract.md) |
-| **Testing** | [worker/TESTING.md](worker/TESTING.md) |
-| **Deployment** | [worker/DEPLOYMENT.md](worker/DEPLOYMENT.md) |
-| **Environment** | [worker/ENVIRONMENT.md](worker/ENVIRONMENT.md) |
-| **Decision Log** | [DECISION_LOG.md](DECISION_LOG.md) |
-| **Agent Guides** | [AGENTS.md](AGENTS.md) |
-
----
 
 ## Development Setup
 
@@ -90,6 +68,21 @@ wrangler deploy
 ## Spec-to-Code Reference
 
 This section maps each specification document to its corresponding implementation.
+
+| Category | Documentation |
+|----------|---------------|
+| **Project Planning** | [.planning/PROJECT.md](.planning/PROJECT.md), [.planning/ROADMAP.md](.planning/ROADMAP.md) |
+| **Requirements** | [.planning/REQUIREMENTS.md](.planning/REQUIREMENTS.md), [.planning/STATE.md](.planning/STATE.md) |
+| **Getting Started** | [README.md](README.md), [IMPLEMENTATION.md](IMPLEMENTATION.md) |
+| **Architecture** | [worker/ARCHITECTURE.md](worker/ARCHITECTURE.md) |
+| **API Contract** | [specs/01-api-contract.md](specs/01-api-contract.md) |
+| **Testing** | [worker/TESTING.md](worker/TESTING.md) |
+| **Deployment** | [worker/DEPLOYMENT.md](worker/DEPLOYMENT.md) |
+| **Environment** | [worker/ENVIRONMENT.md](worker/ENVIRONMENT.md) |
+| **Decision Log** | [DECISION_LOG.md](DECISION_LOG.md) |
+| **Agent Guides** | [AGENTS.md](AGENTS.md) |
+
+---
 
 ### Phase 1: Contract & API Skeleton
 

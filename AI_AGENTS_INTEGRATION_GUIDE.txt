@@ -36,6 +36,17 @@ Usage patterns (frontend integration)
     -H "Telegram-Init-Data: { ... }" \
     -d '{"query":"query GetProducts { products { id name price } }"}'
 
+Frontend Integration Details
+- The frontend (Telegram Mini App) consumes the GraphQL API to implement restaurant browsing, cart management, and order placement
+- All GraphQL operations require authentication via X-Telegram-Init-Data header
+- The frontend implements specific user flows that map to GraphQL operations:
+  * Restaurant browsing: queries/restaurants, queries/restaurantCategories, queries/categoryDishes
+  * Cart management: queries/cart, mutations/addToCart, mutations/updateCartItem, mutations/removeCartItem, mutations/clearCart
+  * Order placement: mutations/placeOrder
+- Frontend state management mirrors the backend GraphQL types for seamless integration
+- Checkout requires either geolocation OR Google Maps link as delivery location input
+- Error handling follows the standardized GraphQL error shape: { errors: [{ message, code, field? }] }
+
 Data formats and validation
 - Use strict input schemas for all mutations (e.g., PlaceOrderInput, DeliveryLocation) and map fields to Saleor equivalents.
 - Validate on server-side; return structured errors for invalid input.
@@ -43,7 +54,7 @@ Data formats and validation
 
 Testing and validation
 - Follow specs/03-autotests.md and use the QA_AGENT approach to define tests for critical journeys.
-- Run tests locally: navigate to worker and run npm test (or your project’s test command) and ensure type checks pass.
+- Run tests locally: navigate to worker and run pnpm test (or your project’s test command) and ensure type checks pass.
 - Validate GraphQL surfaces against specs/01-api-contract.md.
 
 Security considerations
@@ -58,10 +69,12 @@ Observability
 Developer notes
 - The GraphQL backend lives under worker/schema.graphql with resolvers in worker/src. Use worker/index.ts as the entry.
 - The integration should respect the project’s patch conventions and be validated by TS_CODE_AGENT and QA_AGENT before merging.
+- Frontend integration details are documented in frontend-tma.md
 
 References
 - Specs: specs/01-api-contract.md, specs/02-interaction-flow.md, specs/03-autotests.md
 - Agent guides: AGENTS.md, QA_AGENT.md, SEC_AGENT.md, TS_CODE_AGENT.md
+- Frontend specification: frontend-tma.md
 - GraphQL API reference: docs/graphql-api.md (if present in repo)
 
 End of guide
