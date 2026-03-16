@@ -11,8 +11,22 @@ import { requireRead, requireWrite } from "./auth";
 
 // Sample data
 const restaurants: Restaurant[] = [
-  { id: "rest1", name: "Pizza Hub", categories: [], deliveryLocations: [] },
-  { id: "rest2", name: "Sushi Lane", categories: [], deliveryLocations: [] },
+  { 
+    id: "rest1", 
+    name: "Pizza Hub", 
+    categories: [{ id: "cat1", name: "Pizzas" }], 
+    deliveryLocations: [
+      { id: "loc1", address: "123 Pizza Street", city: "New York", country: "USA", latitude: 40.7128, longitude: -74.0060 }
+    ] 
+  },
+  { 
+    id: "rest2", 
+    name: "Sushi Lane", 
+    categories: [{ id: "cat2", name: "Nigiri" }], 
+    deliveryLocations: [
+      { id: "loc2", address: "456 Sushi Avenue", city: "Los Angeles", country: "USA", latitude: 34.0522, longitude: -118.2437 }
+    ] 
+  },
 ];
 
 const categories: Category[] = [
@@ -21,9 +35,9 @@ const categories: Category[] = [
 ];
 
 const dishes: Dish[] = [
-  { id: "dish1", name: "Margherita", price: 9.5, categoryId: "cat1" },
-  { id: "dish2", name: "Pepperoni", price: 11.0, categoryId: "cat1" },
-  { id: "dish3", name: "Salmon Nigiri", price: 2.5, categoryId: "cat2" },
+  { id: "dish1", name: "Margherita", description: "Classic margherita pizza", price: 9.5, currency: "USD", categoryId: "cat1", imageUrl: "https://example.com/margherita.jpg", restaurantId: "rest1" },
+  { id: "dish2", name: "Pepperoni", description: "Pepperoni pizza", price: 11.0, currency: "USD", categoryId: "cat1", imageUrl: "https://example.com/pepperoni.jpg", restaurantId: "rest1" },
+  { id: "dish3", name: "Salmon Nigiri", description: "Salmon nigiri sushi", price: 2.5, currency: "USD", categoryId: "cat2", imageUrl: "https://example.com/salmon-nigiri.jpg", restaurantId: "rest2" },
 ];
 
 /**

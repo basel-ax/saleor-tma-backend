@@ -1,0 +1,30 @@
+{
+  "iterations": [
+    {
+      "iteration": 1,
+      "startedAt": "2026-03-16T10:47:20.739Z",
+      "endedAt": "2026-03-16T10:47:22.230Z",
+      "durationMs": 1363,
+      "agent": "opencode",
+      "model": "",
+      "toolsUsed": {},
+      "filesModified": [
+        ".opencode/",
+        ".ralph/"
+      ],
+      "exitCode": 1,
+      "completionDetected": false,
+      "errors": [
+        "\u001b[91m\u001b[1mError: \u001b[0mSession not found"
+      ]
+    }
+  ],
+  "totalDurationMs": 1363,
+  "struggleIndicators": {
+    "repeatedErrors": {
+      "\u001b[91m\u001b[1mError: \u001b[0mSession not found": 1
+    },
+    "noProgressIterations": 0,
+    "shortIterations": 1
+  }
+}

@@ -110,31 +110,33 @@ export async function addToCart(userId: string, input: AddToCartInput): Promise<
  * Internal function to add item to cart object
  */
 function addToCartToCart(cart: CartState, userId: string, input: AddToCartInput): CartState {
-  const existingItemIndex = cart.items.findIndex(item => item.dishId === input.dishId);
-  
-  if (existingItemIndex >= 0) {
-    // Update quantity of existing item
-    cart.items[existingItemIndex].quantity += input.quantity;
-  } else {
-    // Add new item
-    cart.items.push({
-      dishId: input.dishId,
-      quantity: input.quantity,
-      name: input.name,
-      price: input.price,
-      currency: input.currency,
-    });
-  }
-  
-  // Set restaurantId if not set
-  if (!cart.restaurantId) {
-    cart.restaurantId = input.restaurantId;
-  }
-  
-  // Persist and return
-  setCart(userId, cart);
-  return cart;
-}
+   const existingItemIndex = cart.items.findIndex(item => item.dishId === input.dishId);
+   
+   if (existingItemIndex >= 0) {
+     // Update quantity of existing item
+     cart.items[existingItemIndex].quantity += input.quantity;
+   } else {
+     // Add new item
+     cart.items.push({
+       dishId: input.dishId,
+       quantity: input.quantity,
+       name: input.name,
+       price: input.price,
+       currency: input.currency,
+       description: input.description,
+       imageUrl: input.imageUrl,
+     });
+   }
+   
+   // Set restaurantId if not set
+   if (!cart.restaurantId) {
+     cart.restaurantId = input.restaurantId;
+   }
+   
+   // Persist and return
+   setCart(userId, cart);
+   return cart;
+ }
 
 /**
  * Update quantity for a specific cart item

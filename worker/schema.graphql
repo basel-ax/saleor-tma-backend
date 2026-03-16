@@ -21,11 +21,13 @@
 # Phase 3: Cart Types (In-Memory Cart)
 # ============================================================
 type CartItem {
-  dishId: ID!
-  quantity: Int!
-  name: String
-  price: Float
-  currency: String
+   dishId: ID!
+   quantity: Int!
+   name: String
+   price: Float
+   currency: String
+   description: String
+   imageUrl: String
 }
 
 type Cart {
@@ -62,12 +64,13 @@ type Category {
 }
 
 type Dish {
-  id: ID!
-  name: String!
-  description: String
-  price: Float!
-  categoryId: ID!
-  imageUrl: String
+   id: ID!
+   name: String!
+   description: String!
+   price: Float!
+   currency: String!
+   categoryId: ID!
+   imageUrl: String!
 }
 
 type DeliveryLocation {
@@ -80,12 +83,13 @@ type DeliveryLocation {
 }
 
 input DeliveryLocationInput {
-  id: ID
-  address: String!
-  city: String
-  country: String
-  latitude: Float
-  longitude: Float
+   id: ID
+   address: String!
+   city: String
+   country: String
+   latitude: Float
+   longitude: Float
+   mapsUrl: String
 }
 
 input OrderItemInput {
