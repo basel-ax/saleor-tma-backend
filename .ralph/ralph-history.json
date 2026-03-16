@@ -2,39 +2,9 @@
   "iterations": [
     {
       "iteration": 1,
-      "startedAt": "2026-03-16T10:51:59.479Z",
-      "endedAt": "2026-03-16T10:52:00.946Z",
-      "durationMs": 1345,
-      "agent": "opencode",
-      "model": "",
-      "toolsUsed": {},
-      "filesModified": [],
-      "exitCode": 1,
-      "completionDetected": false,
-      "errors": [
-        "\u001b[91m\u001b[1mError: \u001b[0mSession not found"
-      ]
-    },
-    {
-      "iteration": 2,
-      "startedAt": "2026-03-16T10:52:02.087Z",
-      "endedAt": "2026-03-16T10:52:03.614Z",
-      "durationMs": 1405,
-      "agent": "opencode",
-      "model": "",
-      "toolsUsed": {},
-      "filesModified": [],
-      "exitCode": 1,
-      "completionDetected": false,
-      "errors": [
-        "\u001b[91m\u001b[1mError: \u001b[0mSession not found"
-      ]
-    },
-    {
-      "iteration": 3,
-      "startedAt": "2026-03-16T10:52:04.762Z",
-      "endedAt": "2026-03-16T10:52:06.077Z",
-      "durationMs": 1187,
+      "startedAt": "2026-03-16T10:52:16.487Z",
+      "endedAt": "2026-03-16T10:52:18.252Z",
+      "durationMs": 1643,
       "agent": "opencode",
       "model": "",
       "toolsUsed": {},
@@ -46,12 +16,12 @@
       ]
     }
   ],
-  "totalDurationMs": 3937,
+  "totalDurationMs": 1643,
   "struggleIndicators": {
     "repeatedErrors": {
-      "\u001b[91m\u001b[1mError: \u001b[0mSession not found": 3
+      "\u001b[91m\u001b[1mError: \u001b[0mSession not found": 1
     },
-    "noProgressIterations": 3,
-    "shortIterations": 3
+    "noProgressIterations": 1,
+    "shortIterations": 1
   }
 }
