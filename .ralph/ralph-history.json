@@ -2,9 +2,9 @@
   "iterations": [
     {
       "iteration": 1,
-      "startedAt": "2026-03-16T10:52:16.487Z",
-      "endedAt": "2026-03-16T10:52:18.252Z",
-      "durationMs": 1643,
+      "startedAt": "2026-03-16T10:54:50.317Z",
+      "endedAt": "2026-03-16T10:54:51.943Z",
+      "durationMs": 1503,
       "agent": "opencode",
       "model": "",
       "toolsUsed": {},
@@ -16,7 +16,7 @@
       ]
     }
   ],
-  "totalDurationMs": 1643,
+  "totalDurationMs": 1503,
   "struggleIndicators": {
     "repeatedErrors": {
       "\u001b[91m\u001b[1mError: \u001b[0mSession not found": 1
