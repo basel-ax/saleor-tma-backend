@@ -8,7 +8,7 @@ Test suite structure
 - Test 1: Query restaurants returns 200 and a non-empty list
 - Test 2: Query restaurantCategories returns categories for a valid restaurant
 - Test 3: Query categoryDishes returns dishes for a restaurant/category
-- Test 4: Place an order with deliveryLocation (lat/lng) -> 200 and orderId returned
+- Test 4: Place an order with deliveryLocation (latitude/longitude) -> 200 and orderId returned
 - Test 5: Place an order with Google Maps URL -> 200 and orderId returned
 - Test 6: Cart switch with active cart prompts confirmation; Continue leads to reset and new restaurant context
 - Test 7: Invalid input for placeOrder returns helpful error without losing cart state

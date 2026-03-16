@@ -16,7 +16,7 @@ Types (simplified for the contract)
 - Restaurant { id: ID!, name: String!, description: String, imageUrl: String, tags: [String] }
 - Category { id: ID!, restaurantId: ID!, name: String!, description: String, imageUrl: String }
 - Dish { id: ID!, restaurantId: ID!, categoryId: ID!, name: String!, description: String, imageUrl: String, price: Float, currency: String }
-- DeliveryLocation { lat: Float!, lng: Float! }
+- DeliveryLocation { latitude: Float!, longitude: Float! }
 - OrderItemInput { dishId: ID!, quantity: Int! }
 - PlaceOrderInput {
   restaurantId: ID!,
@@ -43,7 +43,7 @@ Sample requests and responses
     }
   }
 
-- Mutation placeOrder
+  - Mutation placeOrder
   - Request:
     {
       "query": "mutation PlaceOrder($input: PlaceOrderInput!) { placeOrder(input: $input) { orderId status } }",
@@ -51,7 +51,7 @@ Sample requests and responses
         "input": {
           "restaurantId": "rest1",
           "items": [{"dishId": "dish1", "quantity": 2}],
-          "deliveryLocation": {"lat": 40.7128, "lng": -74.0060},
+          "deliveryLocation": {"latitude": 40.7128, "longitude": -74.0060},
           "googleMapsUrl": null,
           "comment": "Leave at door"
         }

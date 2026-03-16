@@ -1,0 +1,67 @@
+AI Agents Integration Guide for saleor-tma-backend GraphQL Backend (Telegram Mini App)
+
+Overview
+- This guide describes how AI Agents (QA, SEC, TS_CODE) should integrate with the GraphQL backend powering the Telegram Mini App.
+- Follow specs under specs/ (contract, flows, autotests) and the agent guides (AGENTS.md, QA_AGENT.md, SEC_AGENT.md, TS_CODE_AGENT.md).
+
+Prerequisites
+- Access to the GraphQL endpoint exposed by the backend (e.g., https://<host>/graphql).
+- A Known Telegram Init Data payload format and a header name to pass authentication/context (e.g., Telegram-Init-Data).
+- Ensure Node/Go environments align with the repo's worker setup and that Wrangler is available if you deploy tests against Cloudflare Workers.
+- Read the contract specs: specs/01-api-contract.md, specs/02-interaction-flow.md, specs/03-autotests.md.
+
+API surface and contracts
+- The integration should target a minimal GraphQL surface driven by frontend flows:
+  - Queries to fetch lists and basic reads
+  - Mutations for placing orders, updating cart, or similar flows as defined in specs
+- All GraphQL inputs must be validated server-side (use Zod or similar validation in TS code) and mapped to Saleor’s required fields.
+- Resolve errors into descriptive GraphQL errors without leaking internal stacks.
+- Use a per-request auth context derived from Telegram Init Data and attached to the GraphQL context for downstream logic.
+
+Authentication & context
+- All GraphQL calls must include a Telegram Init Data header (e.g., Telegram-Init-Data: { ... }).
+- Middleware should verify and parse this data, producing a validated context object (e.g., ctx.user, ctx.session).
+- Resolvers should rely on the context rather than pulling auth data from headers repeatedly.
+
+Usage patterns (frontend integration)
+- Typical request (POST to /graphql):
+  {
+    "query": "query GetProducts { products { id name price } }",
+    "variables": {}
+  }
+- Include Telegram Init Data header on every request: Telegram-Init-Data: { ... }
+- Example (Curl):
+  curl -X POST https://<host>/graphql \
+    -H "Content-Type: application/json" \
+    -H "Telegram-Init-Data: { ... }" \
+    -d '{"query":"query GetProducts { products { id name price } }"}'
+
+Data formats and validation
+- Use strict input schemas for all mutations (e.g., PlaceOrderInput, DeliveryLocation) and map fields to Saleor equivalents.
+- Validate on server-side; return structured errors for invalid input.
+- Never leak sensitive data in error messages.
+
+Testing and validation
+- Follow specs/03-autotests.md and use the QA_AGENT approach to define tests for critical journeys.
+- Run tests locally: navigate to worker and run npm test (or your project’s test command) and ensure type checks pass.
+- Validate GraphQL surfaces against specs/01-api-contract.md.
+
+Security considerations
+- Verify Telegram Init Data on every request; extract identity securely in a per-request context.
+- Avoid revealing secrets in logs; use structured logging with redaction.
+- Keep dependencies up to date and audit for known issues.
+
+Observability
+- Log critical events for tracing (auth, cart changes, orders).
+- Expose basic metrics if applicable (requests/sec, error rate).
+
+Developer notes
+- The GraphQL backend lives under worker/schema.graphql with resolvers in worker/src. Use worker/index.ts as the entry.
+- The integration should respect the project’s patch conventions and be validated by TS_CODE_AGENT and QA_AGENT before merging.
+
+References
+- Specs: specs/01-api-contract.md, specs/02-interaction-flow.md, specs/03-autotests.md
+- Agent guides: AGENTS.md, QA_AGENT.md, SEC_AGENT.md, TS_CODE_AGENT.md
+- GraphQL API reference: docs/graphql-api.md (if present in repo)
+
+End of guide

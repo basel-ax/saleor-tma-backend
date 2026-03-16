@@ -172,7 +172,7 @@ Backend is authoritative for prices/availability/totals.
 {
   "restaurantId": "string",
   "items": [{ "dishId": "string", "quantity": 1 }],
-  "deliveryLocation": { "lat": 0.0, "lng": 0.0 },
+  "deliveryLocation": { "latitude": 0.0, "longitude": 0.0 },
   "googleMapsUrl": null,
   "comment": "string or null"
 }
@@ -246,4 +246,3 @@ Or (Google Maps link mode):
 - Checkout requires **geolocation OR Google Maps link** and blocks submission otherwise.
 - Order submission hits backend and shows success/failure; cart clears on success.
 - App is deployable as a static frontend to Cloudflare Pages; backend is external.
-

@@ -3,8 +3,11 @@
 // Aligns with specs/05-telegram-auth.md
 
 import { Restaurant, Category, Dish, PlaceOrderInput, PlaceOrderPayload, GraphQLContext, AddToCartInput, UpdateCartItemInput, CartState, DeliveryLocation } from "./contracts";
+import { logger } from "./logger";
 import { getCart, addToCart, updateCartItem, removeFromCart, clearCart, getCartTotal, getCartItemCount } from "./cart";
 import { createSaleorOrder, toPlaceOrderPayload, OrderStatus } from "./saleorOrder";
+import { forbiddenError } from "./errors";
+import { requireRead, requireWrite } from "./auth";
 
 // Sample data
 const restaurants: Restaurant[] = [
@@ -32,10 +35,14 @@ const queryResolvers = {
    * Auth context available via context.auth
    */
   restaurants: async (_: any, __: any, context: GraphQLContext): Promise<Restaurant[]> => {
+    // Enforce read permissions
+    const auth = requireRead(context.auth);
+    if (!auth.valid) {
+      logger.authFailure("permission_denied", context.auth.userId);
+      throw forbiddenError();
+    }
     // Log authenticated user (avoid logging sensitive data)
     console.log(`[Resolver] restaurants query for user ${context.auth.userId}`);
-    
-    // Could filter based on user preferences from context.auth
     return restaurants;
   },
 
@@ -43,6 +50,11 @@ const queryResolvers = {
    * Get categories for a restaurant
    */
   restaurantCategories: async (_: any, args: { restaurantId: string }, context: GraphQLContext): Promise<Category[]> => {
+    const auth = requireRead(context.auth);
+    if (!auth.valid) {
+      logger.authFailure("permission_denied", context.auth.userId);
+      throw forbiddenError();
+    }
     console.log(`[Resolver] restaurantCategories for ${args.restaurantId}, user ${context.auth.userId}`);
     return categories;
   },
@@ -51,6 +63,11 @@ const queryResolvers = {
    * Get dishes for a category
    */
   categoryDishes: async (_: any, args: { categoryId: string }, context: GraphQLContext): Promise<Dish[]> => {
+    const auth = requireRead(context.auth);
+    if (!auth.valid) {
+      logger.authFailure("permission_denied", context.auth.userId);
+      throw forbiddenError();
+    }
     console.log(`[Resolver] categoryDishes for ${args.categoryId}, user ${context.auth.userId}`);
     return dishes.filter(d => d.categoryId === args.categoryId);
   },
@@ -63,6 +80,11 @@ const queryResolvers = {
    * Returns cart with items, total price, and item count
    */
   cart: async (_: any, __: any, context: GraphQLContext): Promise<{ restaurantId: string | null; items: any[]; total: number; itemCount: number }> => {
+    const auth = requireRead(context.auth);
+    if (!auth.valid) {
+      logger.authFailure("permission_denied", context.auth.userId);
+      throw forbiddenError();
+    }
     const userId = context.auth.userId;
     console.log(`[Resolver] cart for user ${userId}`);
     
@@ -90,10 +112,15 @@ const mutationResolvers = {
    * Clears cart after successful order
    */
   placeOrder: async (_: any, args: { input: PlaceOrderInput }, context: GraphQLContext): Promise<PlaceOrderPayload> => {
+    // Enforce write permission for mutations
+    const auth = requireWrite(context.auth);
+    if (!auth.valid) {
+      logger.authFailure("permission_denied", context.auth.userId);
+      throw forbiddenError();
+    }
     const userId = context.auth.userId;
     const userName = context.auth.name;
     const userLanguage = context.auth.language;
-    
     console.log(`[Resolver] placeOrder by user ${userId} (${userName}, lang: ${userLanguage})`);
     
     // Validate input
@@ -162,6 +189,11 @@ const mutationResolvers = {
    * If restaurant changes, clears existing cart items
    */
   addToCart: async (_: any, args: { input: AddToCartInput }, context: GraphQLContext): Promise<{ restaurantId: string | null; items: any[]; total: number; itemCount: number }> => {
+    const auth = requireWrite(context.auth);
+    if (!auth.valid) {
+      logger.authFailure("permission_denied", context.auth.userId);
+      throw forbiddenError();
+    }
     const userId = context.auth.userId;
     console.log(`[Resolver] addToCart for user ${userId}, dish ${args.input.dishId}, quantity ${args.input.quantity}`);
     
@@ -182,6 +214,11 @@ const mutationResolvers = {
    * Set quantity to 0 to remove item
    */
   updateCartItem: async (_: any, args: { input: UpdateCartItemInput }, context: GraphQLContext): Promise<{ restaurantId: string | null; items: any[]; total: number; itemCount: number }> => {
+    const auth = requireWrite(context.auth);
+    if (!auth.valid) {
+      logger.authFailure("permission_denied", context.auth.userId);
+      throw forbiddenError();
+    }
     const userId = context.auth.userId;
     console.log(`[Resolver] updateCartItem for user ${userId}, dish ${args.input.dishId}, quantity ${args.input.quantity}`);
     
@@ -201,6 +238,11 @@ const mutationResolvers = {
    * Remove item from cart
    */
   removeCartItem: async (_: any, args: { dishId: string }, context: GraphQLContext): Promise<{ restaurantId: string | null; items: any[]; total: number; itemCount: number }> => {
+    const auth = requireWrite(context.auth);
+    if (!auth.valid) {
+      logger.authFailure("permission_denied", context.auth.userId);
+      throw forbiddenError();
+    }
     const userId = context.auth.userId;
     console.log(`[Resolver] removeCartItem for user ${userId}, dish ${args.dishId}`);
     
@@ -220,6 +262,11 @@ const mutationResolvers = {
    * Clear entire cart
    */
   clearCart: async (_: any, __: any, context: GraphQLContext): Promise<{ restaurantId: string | null; items: any[]; total: number; itemCount: number }> => {
+    const auth = requireWrite(context.auth);
+    if (!auth.valid) {
+      logger.authFailure("permission_denied", context.auth.userId);
+      throw forbiddenError();
+    }
     const userId = context.auth.userId;
     console.log(`[Resolver] clearCart for user ${userId}`);
     

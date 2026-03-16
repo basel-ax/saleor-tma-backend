@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Telegram TMA Frontend - Skeleton</title>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 1rem; background: #f7f7f7; }
+    #app { max-width: 720px; margin: auto; background: #fff; padding: 1rem; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,.05); }
+    pre { background: #f0f0f0; padding: 0.5rem; border-radius: 4px; overflow: auto; }
+  </style>
+  <script>
+    // Simple frontend skeleton to interact with the backend GraphQL surface.
+    // This is intentionally minimal and static to demonstrate the contract.
+    (function(){
+      const BASE = (window.BACKEND_BASE_URL || "http://localhost:8787");
+      // Minimal Telegram Init Data (used in tests); override via env in real deployment
+      const INIT_DATA = (window.VALID_INIT_DATA || "auth_date=1700000000&hash=test_hash&user=%7B%22id%22%3A%22123456789%22%2C%22first_name%22%3A%22Test%22%2C%22last_name%22%3A%22User%22%2C%22language_code%22%3A%22en%22%7D");
+      async function run(query, variables){ 
+        const res = await fetch(`${BASE}/graphql`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-Telegram-Init-Data": INIT_DATA
+          },
+          body: JSON.stringify({ query, variables })
+        });
+        return res.json();
+      }
+      window.__tmaFrontend = { run };
+      // Expose a tiny demo to fetch restaurants on load
+      document.addEventListener("DOMContentLoaded", async () => {
+        const area = document.getElementById("list");
+        area.textContent = "Loading restaurants...";
+        const resp = await run(`
+          query Restaurants($search: String) {
+            restaurants(search: $search) {
+              id
+              name
+              description
+              imageUrl
+              tags
+            }
+          }`, { search: null });
+        area.textContent = "";
+        const pre = document.createElement("pre");
+        pre.textContent = JSON.stringify(resp, null, 2);
+        area.appendChild(pre);
+      });
+    })();
+  </script>
+</head>
+<body>
+  <div id="app">
+    <h1>Telegram TMA Frontend (Skeleton)</h1>
+    <div id="status"></div>
+    <section id="list" aria-label="restaurants"></section>
+  </div>
+</body>
+</html>

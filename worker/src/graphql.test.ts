@@ -21,6 +21,7 @@ import {
   MUTATION_PLACE_ORDER,
   MUTATION_ADD_TO_CART,
   MUTATION_CLEAR_CART,
+  FORBIDDEN_INIT_DATA,
 } from './testHelpers';
 
 // Use globalThis for environment variable (Cloudflare Worker compatible)
@@ -266,6 +267,23 @@ describe('GraphQL API Contract Tests', () => {
       expect(response.data?.clearCart.items).toEqual([]);
       expect(response.data?.clearCart.total).toBe(0);
       expect(response.data?.clearCart.itemCount).toBe(0);
+    });
+  });
+
+  // Test 16: Forbidden access when user lacks write permission
+  describe('Forbidden access: write mutation with forbidden user', () => {
+    it('should return 403 when user lacks write permission', async () => {
+      const input = {
+        dishId: TEST_DISHES.DISH_A1.id,
+        quantity: 1,
+        name: TEST_DISHES.DISH_A1.name,
+        price: TEST_DISHES.DISH_A1.price,
+        currency: 'USD',
+        restaurantId: TEST_RESTAURANTS.REST_A.id,
+      };
+      const response = await graphqlRequest(MUTATION_ADD_TO_CART, { input }, FORBIDDEN_INIT_DATA);
+      expect(response.errors).toBeDefined();
+      expect(response.errors?.[0].code).toBe('FORBIDDEN');
     });
   });
 });

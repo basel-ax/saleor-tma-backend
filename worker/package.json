@@ -1,5 +1,5 @@
 {
-  "name": "tma-graphql-worker-skeleton",
+  "name": "saleor-tma-backend",
   "version": "0.1.0",
   "type": "module",
   "scripts": {

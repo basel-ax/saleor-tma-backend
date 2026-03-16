@@ -120,7 +120,7 @@ query CategoryDishes($categoryId: ID!) {
 ---
 
 ### Test 4: Place Order with Delivery Location
-**Description:** Place an order with lat/lng delivery location
+**Description:** Place an order with latitude/longitude delivery location
 
 **Request:**
 ```graphql

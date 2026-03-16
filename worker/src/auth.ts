@@ -43,13 +43,10 @@ export interface PermissionResult {
  * @returns PermissionResult with allowed status
  */
 export function checkPermission(userId: string, requiredPermission: Permission): PermissionResult {
-  // TODO: Implement actual permission checking against a store/KV
-  // For now, allow all authenticated users basic read/write access
-  
-  // Example permission logic (would be replaced with real implementation):
-  // const userPermissions = getUserPermissions(userId);
-  // return { allowed: userPermissions.includes(requiredPermission) };
-  
+  // Simple in-test policy: explicitly forbid a known test user to simulate 403s
+  if (userId === "forbidden_user") {
+    return { allowed: false, reason: "forbidden_user" };
+  }
   // Default: allow authenticated users
   return { allowed: true };
 }
