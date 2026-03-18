@@ -80,10 +80,13 @@ GraphQL endpoint: `http://localhost:8787/graphql`
 ### Running Tests
 
 ```bash
-# Contract tests with spec-kit
+# Start the dev server in one terminal
+cd worker && pnpm run dev:local
+
+# Run tests in another terminal
 cd worker && pnpm test
 
-# Or with custom URL
+# Or run tests with the server URL explicitly set
 SPEC_KIT_BASE_URL=http://localhost:8787 pnpm test
 ```
 
