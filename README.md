@@ -77,17 +77,35 @@ wrangler dev
 
 GraphQL endpoint: `http://localhost:8787/graphql`
 
+### Quick Start
+
+```bash
+# Terminal 1: Build and start dev server
+cd worker
+pnpm install
+pnpm run build
+pnpm run dev:local
+
+# Terminal 2: Run tests (in a new terminal while server is running)
+cd worker
+pnpm test
+```
+
 ### Running Tests
 
 ```bash
-# Start the dev server in one terminal
+# Option 1: Start server and run tests in separate terminals
+# Terminal 1: Start the dev server
 cd worker && pnpm run dev:local
 
-# Run tests in another terminal
+# Terminal 2: Run tests
 cd worker && pnpm test
 
-# Or run tests with the server URL explicitly set
+# Option 2: Run tests with explicitly set server URL
 SPEC_KIT_BASE_URL=http://localhost:8787 pnpm test
+
+# Option 3: Run specific test file
+npx vitest run src/graphql.test.ts
 ```
 
 ### Deployment

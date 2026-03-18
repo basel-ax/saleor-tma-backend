@@ -123,14 +123,14 @@ export function buildPlaceOrderInput(overrides: Partial<PlaceOrderInput> = {}): 
  * Contains minimal valid fields for auth validation
  */
 export const VALID_INIT_DATA = [
-  "auth_date=1700000000",
+  "auth_date=2000000000",
   "hash=test_hash",
   "user={\"id\":\"123456789\",\"first_name\":\"Test\",\"last_name\":\"User\",\"language_code\":\"en\"}",
 ].join("&");
 
 // Forbidden user init data (simulates a user without required permissions)
 export const FORBIDDEN_INIT_DATA = [
-  "auth_date=1700000000",
+  "auth_date=2000000000",
   "hash=test_hash",
   "user={\"id\":\"forbidden_user\",\"first_name\":\"Forbidden\",\"language_code\":\"en\"}",
 ].join("&");

@@ -2,12 +2,19 @@
 // Validates Telegram Init Data and propagates AuthContext to resolvers
 // Phase 7: Enhanced error handling with standardized codes
 
-import { AppError, ErrorCode, unauthorizedError, internalError } from "./errors";
+import { AppError, unauthorizedError, internalError } from "./errors";
 import { logger } from "./logger";
 
 import { AuthContext, GraphQLContext, PlaceOrderPayload, PlaceOrderInput as PlaceOrderInputType, AddToCartInput, UpdateCartItemInput } from "./contracts";
 import { extractAuthContext } from "./auth";
 import { getCartSync, addToCartSync, updateCartItemSync, removeFromCartSync, clearCartSync, getCartTotalSync, getCartItemCountSync } from "./cart";
+
+// CORS headers for preflight and actual requests
+const CORS_HEADERS = {
+  "Access-Control-Allow-Origin": "http://localhost:5173",
+  "Access-Control-Allow-Headers": "Content-Type, X-Telegram-Init-Data",
+  "Access-Control-Allow-Methods": "GET, POST, OPTIONS"
+};
 
 // Type for resolver arguments including context
 export interface ResolverContext {
@@ -63,14 +70,21 @@ function errorResponse(error: AppError, requestId?: string): Response {
 
   return new Response(JSON.stringify({ errors: [error.toGraphQL()] }), {
     status: error.statusCode,
-    headers: { "Content-Type": "application/json", "X-Request-Id": requestId || "" },
+    headers: { 
+      "Content-Type": "application/json", 
+      "X-Request-Id": requestId || "",
+      ...CORS_HEADERS
+    },
   });
 }
 
 function jsonResponse(obj: any): Response {
   return new Response(JSON.stringify(obj), {
     status: 200,
-    headers: { "Content-Type": "application/json" },
+    headers: { 
+      "Content-Type": "application/json",
+      ...CORS_HEADERS
+    },
   });
 }
 
@@ -78,48 +92,56 @@ function jsonResponse(obj: any): Response {
  * Main request handler with auth integration
  */
 async function handleRequest(request: Request): Promise<Response> {
-  // Phase 2: Auth context extraction
-  const context = createContext(request);
+    // Handle CORS preflight requests - MUST be before auth checks
+    if (request.method === "OPTIONS") {
+      return new Response(null, {
+        status: 200,
+        headers: CORS_HEADERS
+      });
+    }
 
-  // Return 401 if auth is invalid (per specs/05-telegram-auth.md)
-  if (!context.auth.valid) {
-    const requestId = crypto.randomUUID();
-    logger.authFailure(context.auth.errorCode || "unknown", requestId);
-    return errorResponse(unauthorizedError(), requestId);
-  }
+    // Phase 2: Auth context extraction
+    const context = createContext(request);
 
-  // Log authenticated user (avoid logging sensitive data in production)
-  logger.authSuccess(context.auth.userId);
+    // Return 401 if auth is invalid (per specs/05-telegram-auth.md)
+    if (!context.auth.valid) {
+      const requestId = crypto.randomUUID();
+      logger.authFailure(context.auth.errorCode || "unknown", requestId);
+      return errorResponse(unauthorizedError("Missing X-Telegram-Init-Data"), requestId);
+    }
 
-  // Parse GraphQL request body
-  let body: any = {};
-  if (request.method === "POST") {
+   // Log authenticated user (avoid logging sensitive data in production)
+   logger.authSuccess(context.auth.userId);
+
+   // Parse GraphQL request body
+   let body: any = {};
+   if (request.method === "POST") {
+     try {
+       body = await request.json();
+     } catch {
+       body = {};
+     }
+   }
+
+   const query: string = body?.query ?? "";
+   const variables = body?.variables ?? {};
+
+    // GraphQL resolver routing with auth context
     try {
-      body = await request.json();
-    } catch {
-      body = {};
+      const result = await resolveGraphQL(query, variables, context);
+      return jsonResponse({ data: result });
+    } catch (error) {
+      const requestId = crypto.randomUUID();
+      
+      if (error instanceof AppError) {
+        return errorResponse(error, requestId);
+      }
+
+      logger.error("unhandled_error", { error: error instanceof Error ? error.message : "Unknown" });
+      const internalErr = internalError(requestId);
+      return errorResponse(internalErr, requestId);
     }
-  }
-
-  const query: string = body?.query ?? "";
-  const variables = body?.variables ?? {};
-
-  // GraphQL resolver routing with auth context
-  try {
-    const result = await resolveGraphQL(query, variables, context);
-    return jsonResponse({ data: result });
-  } catch (error) {
-    const requestId = crypto.randomUUID();
-    
-    if (error instanceof AppError) {
-      return errorResponse(error, requestId);
-    }
-
-    logger.error("unhandled_error", { error: error instanceof Error ? error.message : "Unknown" });
-    const internalErr = internalError(requestId);
-    return errorResponse(internalErr, requestId);
-  }
-}
+ }
 
 /**
  * GraphQL resolver dispatcher - routes queries/mutations to handlers

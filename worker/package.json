@@ -2,6 +2,13 @@
   "name": "saleor-tma-backend",
   "version": "0.1.0",
   "type": "module",
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild",
+      "sharp",
+      "workerd"
+    ]
+  },
   "scripts": {
     "build": "esbuild src/index.ts --bundle --format=esm --outfile=dist/bundled.js --platform=neutral --target=es2020 --external:*.test.ts",
     "build:tsc": "tsc -p tsconfig.json",
@@ -19,6 +26,6 @@
     "esbuild": "^0.24.0",
     "typescript": "^5.5.0",
     "vitest": "^2.0.0",
-    "wrangler": "^3.97.0"
+    "wrangler": "^4.75.0"
   }
 }
