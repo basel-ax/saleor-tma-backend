@@ -56,15 +56,17 @@ export function buildCategory(overrides: Partial<Category> = {}): Category {
  * Build a Dish object for testing
  */
 export function buildDish(overrides: Partial<Dish> = {}): Dish {
-  return {
-    id: TEST_DISHES.DISH_A1.id,
-    name: "Test Dish",
-    price: 9.99,
-    categoryId: TEST_CATEGORIES.CAT_A.id,
-    description: "Test description",
-    imageUrl: "https://example.com/image.jpg",
-    ...overrides,
-  };
+   return {
+     id: TEST_DISHES.DISH_A1.id,
+     name: "Test Dish",
+     description: "Test description",
+     price: 9.99,
+     currency: "USD",
+     categoryId: TEST_CATEGORIES.CAT_A.id,
+     imageUrl: "https://example.com/image.jpg",
+     restaurantId: TEST_RESTAURANTS.REST_A.id,
+     ...overrides,
+   };
 }
 
 /**

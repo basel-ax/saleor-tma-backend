@@ -17,7 +17,7 @@ This is the central documentation hub for the Telegram Mini App GraphQL backend 
 
 ### Prerequisites
 - Node.js (latest LTS)
-- Wrangler CLI (`npm install -g wrangler`)
+- Wrangler CLI (`npm install -g wrangler`) - optional, see below
 
 ### Local Development
 
@@ -28,16 +28,52 @@ This is the central documentation hub for the Telegram Mini App GraphQL backend 
 cd worker && pnpm install
 
 # Copy environment template
-cp .dev.vars.example .dev.vars
+cp worker/.dev.vars.example worker/.dev.vars
+```
 
+#### Option 1: Using Node.js (Recommended - works everywhere)
+
+If `wrangler dev` doesn't work on your system (e.g., port binding issues), use this alternative:
+
+```bash
+# Build the worker
+cd worker && pnpm run build
+
+# Start local dev server (alternative to wrangler dev)
+cd worker && pnpm run dev:local
+```
+
+The server will start at `http://localhost:8787`
+
+**Example requests:**
+```bash
+# Restaurants
+curl -X POST http://localhost:8787/graphql \
+  -H "Content-Type: application/json" \
+  -H "X-Telegram-Init-Data: hash=test&auth_date=$(date +%s)&user={\"id\":\"12345\",\"first_name\":\"Test\"}" \
+  -d '{"query": "{ restaurants { id name } }"}'
+
+# Categories
+curl -X POST http://localhost:8787/graphql \
+  -H "Content-Type: application/json" \
+  -H "X-Telegram-Init-Data: hash=test&auth_date=$(date +%s)&user={\"id\":\"12345\",\"first_name\":\"Test\"}" \
+  -d '{"query": "{ restaurantCategories(restaurantId: \"rest1\") { id name } }"}'
+
+# Dishes
+curl -X POST http://localhost:8787/graphql \
+  -H "Content-Type: application/json" \
+  -H "X-Telegram-Init-Data: hash=test&auth_date=$(date +%s)&user={\"id\":\"12345\",\"first_name\":\"Test\"}" \
+  -d '{"query": "{ categoryDishes(restaurantId: \"rest1\", categoryId: \"cat1\") { id name price } }"}'
+```
+
+#### Option 2: Using Wrangler (Original)
+
+```bash
 # Start local dev server
 wrangler dev
 ```
 
-If you don't have pnpm installed, you can install it globally with:
-```bash
-npm install -g pnpm
-```
+> **Note**: If wrangler dev fails with "Address already in use" errors, use Option 1 instead.
 
 GraphQL endpoint: `http://localhost:8787/graphql`
 

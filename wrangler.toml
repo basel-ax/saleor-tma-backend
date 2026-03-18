@@ -9,7 +9,8 @@ workers_dev = true
 
 # Build configuration for TypeScript
 [build]
-command = "cd worker && npm install && npm run build"
+command = "npm run build"
+cwd = "worker"
 
 # Environment variables exposed to the worker
 # These are set via `wrangler secret put` or Cloudflare Dashboard
