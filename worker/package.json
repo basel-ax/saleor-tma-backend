@@ -10,7 +10,8 @@
     ]
   },
   "scripts": {
-    "build": "esbuild src/index.ts --bundle --format=esm --outfile=dist/bundled.js --platform=neutral --target=es2020 --external:*.test.ts",
+    "build": "build-worker --entry src/index.ts --out dist/bundled.js --debug",
+    "build:prod": "build-worker --entry src/index.ts --out dist/bundled.js",
     "build:tsc": "tsc -p tsconfig.json",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -22,6 +23,8 @@
     "whoami": "wrangler whoami"
   },
   "dependencies": {
+    "@esbuild-plugins/node-modules-polyfill": "^0.2.2",
+    "build-worker": "^0.3.4",
     "esbuild": "^0.24.0"
   },
   "devDependencies": {

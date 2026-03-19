@@ -9,7 +9,7 @@ workers_dev = true
 
 # Build configuration for TypeScript
 [build]
-command = "pnpm install && cd worker && pnpm run build"
+command = "cd worker && pnpm install && pnpm run build"
 cwd = "."
 
 # Environment variables exposed to the worker
