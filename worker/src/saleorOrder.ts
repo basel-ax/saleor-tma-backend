@@ -3,14 +3,30 @@
 // Aligns with task/phase-4-place-order-flow.md
 // Phase 9: Real Saleor integration enabled
 
-import { PlaceOrderInput, PlaceOrderPayload, DeliveryLocation, OrderItemInput } from "./contracts";
-import { SaleorClient, ORDER_CREATE_MUTATION, getSaleorClient, isSaleorConfigured } from "./saleorClient";
+import {
+  PlaceOrderInput,
+  PlaceOrderPayload,
+  DeliveryLocation,
+  OrderItemInput,
+} from "./contracts";
+import {
+  SaleorClient,
+  ORDER_CREATE_MUTATION,
+  getSaleorClient,
+  isSaleorConfigured,
+} from "./saleorClient";
 import { logger } from "./logger";
 
 /**
  * Order status enum for type safety
  */
-export type OrderStatus = "CREATED" | "CONFIRMED" | "PROCESSING" | "SHIPPED" | "DELIVERED" | "CANCELLED";
+export type OrderStatus =
+  | "CREATED"
+  | "CONFIRMED"
+  | "PROCESSING"
+  | "SHIPPED"
+  | "DELIVERED"
+  | "CANCELLED";
 
 /**
  * Internal order representation (matches Saleor order structure)
@@ -57,7 +73,9 @@ const mockOrders: Map<string, SaleorOrder> = new Map();
 /**
  * Build order lines from input items for Saleor mutation
  */
-function buildOrderLines(items: OrderItemInput[]): Array<{ variantId: string; quantity: number }> {
+function buildOrderLines(
+  items: OrderItemInput[],
+): Array<{ variantId: string; quantity: number }> {
   return items.map((item) => ({
     variantId: item.dishId,
     quantity: item.quantity,
@@ -66,12 +84,12 @@ function buildOrderLines(items: OrderItemInput[]): Array<{ variantId: string; qu
 
 /**
  * Create a Saleor draft order from cart data
- * 
+ *
  * This calls the Saleor orderCreate mutation:
  * https://docs.saleor.io/docs/3.0/api-reference/mutations/orderCreate
- * 
+ *
  * When Saleor is not configured, falls back to mock implementation.
- * 
+ *
  * @param input - Order input from GraphQL mutation
  * @param userId - Authenticated user ID from context
  * @param userName - User's name from context
@@ -82,7 +100,7 @@ export async function createSaleorOrder(
   input: PlaceOrderInput,
   userId: string,
   userName?: string,
-  userLanguage?: string
+  userLanguage?: string,
 ): Promise<CreateOrderResult> {
   // Validate input
   if (!input.restaurantId) {
@@ -124,12 +142,12 @@ export async function createSaleorOrder(
 
     // Build Saleor mutation variables
     const lines = buildOrderLines(input.items);
-    
+
     // Note: In a real implementation, you'd need to:
     // 1. Check if a cart/checkout exists in Saleor
     // 2. Use the appropriate channel/warehouse
     // 3. Map user data to Saleor customer fields
-    
+
     const variables = {
       input: {
         lines: lines.map((line) => ({
@@ -155,7 +173,11 @@ export async function createSaleorOrder(
           number: number;
           status: string;
           total: { gross: { amount: number; currency: string } };
-          shippingAddress: { streetAddress1: string; city: string; country: { code: string } };
+          shippingAddress: {
+            streetAddress1: string;
+            city: string;
+            country: { code: string };
+          };
           lines: Array<{ id: string; productName: string; quantity: number }>;
           createdAt: string;
         };
@@ -165,7 +187,10 @@ export async function createSaleorOrder(
 
     if (response.errors && response.errors.length > 0) {
       const errorMessage = response.errors.map((e) => e.message).join(", ");
-      logger.error("saleor_order_create_error", { error: errorMessage, userId });
+      logger.error("saleor_order_create_error", {
+        error: errorMessage,
+        userId,
+      });
       return {
         success: false,
         error: errorMessage,
@@ -174,10 +199,13 @@ export async function createSaleorOrder(
     }
 
     const orderData = response.data?.orderCreate;
-    
+
     if (orderData?.errors && orderData.errors.length > 0) {
       const errorMessage = orderData.errors.map((e) => e.message).join(", ");
-      logger.error("saleor_order_validation_error", { error: errorMessage, userId });
+      logger.error("saleor_order_validation_error", {
+        error: errorMessage,
+        userId,
+      });
       return {
         success: false,
         error: errorMessage,
@@ -186,7 +214,7 @@ export async function createSaleorOrder(
     }
 
     const saleorOrder = orderData?.order;
-    
+
     if (!saleorOrder) {
       return {
         success: false,
@@ -240,7 +268,7 @@ export async function createSaleorOrder(
  */
 function createMockOrder(
   input: PlaceOrderInput,
-  userId: string
+  userId: string,
 ): CreateOrderResult {
   try {
     // Generate unique order ID (simulates Saleor ID format)
@@ -255,7 +283,10 @@ function createMockOrder(
     }));
 
     // Calculate total (simplified - in real implementation would use actual prices)
-    const totalAmount = lines.reduce((sum, line) => sum + (line.quantity * 10), 0); // Mock price
+    const totalAmount = lines.reduce(
+      (sum, line) => sum + line.quantity * 10,
+      0,
+    ); // Mock price
 
     // Create Saleor order object
     const order: SaleorOrder = {
@@ -301,7 +332,8 @@ function createMockOrder(
     });
     return {
       success: false,
-      error: error instanceof Error ? error.message : "Unknown error creating order",
+      error:
+        error instanceof Error ? error.message : "Unknown error creating order",
       errorCode: "ORDER_CREATE_FAILED",
     };
   }

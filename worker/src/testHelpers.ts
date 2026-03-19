@@ -2,7 +2,14 @@
 // Provides mock data builders and test fixtures for spec-kit autotests
 // Aligns with specs/03-autotests.md
 
-import { Restaurant, Category, Dish, Cart, PlaceOrderInput, AuthContext } from "./contracts";
+import {
+  Restaurant,
+  Category,
+  Dish,
+  Cart,
+  PlaceOrderInput,
+  AuthContext,
+} from "./contracts";
 
 // ============================================================
 // Test Data Constants (from specs/03-autotests.md)
@@ -14,9 +21,24 @@ export const TEST_RESTAURANTS = {
 };
 
 export const TEST_DISHES = {
-  DISH_A1: { id: "dishA1", name: "Margherita Pizza", price: 9.5, categoryId: "catA" },
-  DISH_A2: { id: "dishA2", name: "Pepperoni Pizza", price: 11.0, categoryId: "catA" },
-  DISH_B1: { id: "dishB1", name: "Salmon Nigiri", price: 2.5, categoryId: "catB" },
+  DISH_A1: {
+    id: "dishA1",
+    name: "Margherita Pizza",
+    price: 9.5,
+    categoryId: "catA",
+  },
+  DISH_A2: {
+    id: "dishA2",
+    name: "Pepperoni Pizza",
+    price: 11.0,
+    categoryId: "catA",
+  },
+  DISH_B1: {
+    id: "dishB1",
+    name: "Salmon Nigiri",
+    price: 2.5,
+    categoryId: "catB",
+  },
 };
 
 export const TEST_CATEGORIES = {
@@ -31,7 +53,9 @@ export const TEST_CATEGORIES = {
 /**
  * Build a Restaurant object for testing
  */
-export function buildRestaurant(overrides: Partial<Restaurant> = {}): Restaurant {
+export function buildRestaurant(
+  overrides: Partial<Restaurant> = {},
+): Restaurant {
   return {
     id: TEST_RESTAURANTS.REST_A.id,
     name: "Test Restaurant",
@@ -56,17 +80,17 @@ export function buildCategory(overrides: Partial<Category> = {}): Category {
  * Build a Dish object for testing
  */
 export function buildDish(overrides: Partial<Dish> = {}): Dish {
-   return {
-     id: TEST_DISHES.DISH_A1.id,
-     name: "Test Dish",
-     description: "Test description",
-     price: 9.99,
-     currency: "USD",
-     categoryId: TEST_CATEGORIES.CAT_A.id,
-     imageUrl: "https://example.com/image.jpg",
-     restaurantId: TEST_RESTAURANTS.REST_A.id,
-     ...overrides,
-   };
+  return {
+    id: TEST_DISHES.DISH_A1.id,
+    name: "Test Dish",
+    description: "Test description",
+    price: 9.99,
+    currency: "USD",
+    categoryId: TEST_CATEGORIES.CAT_A.id,
+    imageUrl: "https://example.com/image.jpg",
+    restaurantId: TEST_RESTAURANTS.REST_A.id,
+    ...overrides,
+  };
 }
 
 /**
@@ -93,7 +117,9 @@ export function buildCart(overrides: Partial<Cart> = {}): Cart {
 /**
  * Build a PlaceOrderInput for testing
  */
-export function buildPlaceOrderInput(overrides: Partial<PlaceOrderInput> = {}): PlaceOrderInput {
+export function buildPlaceOrderInput(
+  overrides: Partial<PlaceOrderInput> = {},
+): PlaceOrderInput {
   const defaultInput: PlaceOrderInput = {
     restaurantId: TEST_RESTAURANTS.REST_A.id,
     deliveryLocation: {
@@ -112,7 +138,7 @@ export function buildPlaceOrderInput(overrides: Partial<PlaceOrderInput> = {}): 
     customerNote: "Test note",
   };
   return { ...defaultInput, ...overrides };
-};
+}
 
 // ============================================================
 // Auth Context Helpers
@@ -125,14 +151,14 @@ export function buildPlaceOrderInput(overrides: Partial<PlaceOrderInput> = {}): 
 export const VALID_INIT_DATA = [
   "auth_date=2000000000",
   "hash=test_hash",
-  "user={\"id\":\"123456789\",\"first_name\":\"Test\",\"last_name\":\"User\",\"language_code\":\"en\"}",
+  'user={"id":"123456789","first_name":"Test","last_name":"User","language_code":"en"}',
 ].join("&");
 
 // Forbidden user init data (simulates a user without required permissions)
 export const FORBIDDEN_INIT_DATA = [
   "auth_date=2000000000",
   "hash=test_hash",
-  "user={\"id\":\"forbidden_user\",\"first_name\":\"Forbidden\",\"language_code\":\"en\"}",
+  'user={"id":"forbidden_user","first_name":"Forbidden","language_code":"en"}',
 ].join("&");
 
 /**
@@ -141,13 +167,15 @@ export const FORBIDDEN_INIT_DATA = [
 export const EXPIRED_INIT_DATA = [
   "auth_date=1000000000", // Old timestamp
   "hash=test_hash",
-  "user={\"id\":\"123456789\",\"first_name\":\"Test\",\"last_name\":\"User\"}",
+  'user={"id":"123456789","first_name":"Test","last_name":"User"}',
 ].join("&");
 
 /**
  * Build a valid AuthContext for testing
  */
-export function buildAuthContext(overrides: Partial<AuthContext> = {}): AuthContext {
+export function buildAuthContext(
+  overrides: Partial<AuthContext> = {},
+): AuthContext {
   return {
     userId: "123456789",
     name: "Test User",
@@ -160,7 +188,9 @@ export function buildAuthContext(overrides: Partial<AuthContext> = {}): AuthCont
 /**
  * Build an invalid AuthContext for testing
  */
-export function buildInvalidAuthContext(errorCode: string = "UNAUTHENTICATED"): AuthContext {
+export function buildInvalidAuthContext(
+  errorCode: string = "UNAUTHENTICATED",
+): AuthContext {
   return {
     userId: "",
     valid: false,
@@ -175,7 +205,10 @@ export function buildInvalidAuthContext(errorCode: string = "UNAUTHENTICATED"): 
 /**
  * Build a GraphQL request body
  */
-export function buildGraphQLRequest(query: string, variables: Record<string, any> = {}): string {
+export function buildGraphQLRequest(
+  query: string,
+  variables: Record<string, any> = {},
+): string {
   return JSON.stringify({ query, variables });
 }
 
@@ -303,8 +336,9 @@ export function isValidRestaurantsResponse(data: any): boolean {
   if (!data?.restaurants || !Array.isArray(data.restaurants)) {
     return false;
   }
-  return data.restaurants.length > 0 && data.restaurants.every(
-    (r: any) => r.id && r.name
+  return (
+    data.restaurants.length > 0 &&
+    data.restaurants.every((r: any) => r.id && r.name)
   );
 }
 
@@ -327,9 +361,11 @@ export function isValidCartResponse(data: any): boolean {
     return false;
   }
   const { items, total, itemCount } = data.cart;
-  return Array.isArray(items) && 
-         typeof total === "number" && 
-         typeof itemCount === "number";
+  return (
+    Array.isArray(items) &&
+    typeof total === "number" &&
+    typeof itemCount === "number"
+  );
 }
 
 // ============================================================
@@ -346,7 +382,7 @@ export interface TestConfig {
  * Note: Uses globalThis for Cloudflare Worker compatibility
  */
 export function getTestConfig(): TestConfig {
-  const env = typeof globalThis !== 'undefined' ? (globalThis as any) : {};
+  const env = typeof globalThis !== "undefined" ? (globalThis as any) : {};
   return {
     baseUrl: env.SPEC_KIT_BASE_URL || "http://localhost:8787",
     validInitData: VALID_INIT_DATA,

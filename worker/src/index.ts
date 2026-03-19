@@ -5,16 +5,40 @@
 import { AppError, unauthorizedError, internalError } from "./errors";
 import { logger } from "./logger";
 
-import { AuthContext, GraphQLContext, PlaceOrderPayload, PlaceOrderInput as PlaceOrderInputType, AddToCartInput, UpdateCartItemInput } from "./contracts";
+import {
+  AuthContext,
+  GraphQLContext,
+  PlaceOrderPayload,
+  PlaceOrderInput as PlaceOrderInputType,
+  AddToCartInput,
+  UpdateCartItemInput,
+  Restaurant,
+  Category,
+  Dish,
+} from "./contracts";
 import { extractAuthContext } from "./auth";
-import { getCartSync, addToCartSync, updateCartItemSync, removeFromCartSync, clearCartSync, getCartTotalSync, getCartItemCountSync } from "./cart";
+import {
+  getCartSync,
+  addToCartSync,
+  updateCartItemSync,
+  removeFromCartSync,
+  clearCartSync,
+  getCartTotalSync,
+  getCartItemCountSync,
+} from "./cart";
+import {
+  fetchRestaurants,
+  fetchCategories,
+  fetchDishes,
+} from "./saleorService";
 
 // CORS headers for preflight and actual requests
 // Allow any localhost port during development (5173, 5174, etc.)
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "Content-Type, X-Telegram-Init-Data, Telegram-Init-Data",
-  "Access-Control-Allow-Methods": "GET, POST, OPTIONS"
+  "Access-Control-Allow-Headers":
+    "Content-Type, X-Telegram-Init-Data, Telegram-Init-Data",
+  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
 };
 
 // Type for resolver arguments including context
@@ -22,30 +46,20 @@ export interface ResolverContext {
   context: GraphQLContext;
 }
 
-// Sample data (from Phase 1)
-type Restaurant = { id: string; name: string; description?: string; imageUrl?: string; tags?: string[] };
-type Category = { id: string; restaurantId: string; name: string; description?: string; imageUrl?: string };
-type Dish = { id: string; restaurantId: string; categoryId: string; name: string; description?: string; imageUrl?: string; price?: number; currency?: string };
-type PlaceOrderInput = PlaceOrderInputType;
-
-const restaurants: Restaurant[] = [
-  { id: "rest1", name: "Pizza Hub", description: "Neapolitan & brick-oven pizzas", imageUrl: "https://example.com/rest1.jpg", tags: ["pizza"] },
-  { id: "rest2", name: "Sushi Lane", description: "Fresh nigiri and rolls", imageUrl: "https://example.com/rest2.jpg", tags: ["sushi"] },
-];
-
-const categories: Category[] = [
-  { id: "cat1", restaurantId: "rest1", name: "Pizzas", description: "Brick-oven pizzas" },
-  { id: "cat2", restaurantId: "rest2", name: "Nigiri", description: "Assorted nigiri" },
-];
-
-const dishes: Dish[] = [
-  { id: "dish1", restaurantId: "rest1", categoryId: "cat1", name: "Margherita", description: "Tomato, mozzarella, basil", imageUrl: "https://example.com/d1.jpg", price: 9.5, currency: "USD" },
-  { id: "dish2", restaurantId: "rest1", categoryId: "cat1", name: "Pepperoni", description: "Tomato, mozzarella, pepperoni", imageUrl: "https://example.com/d2.jpg", price: 11.0, currency: "USD" },
-  { id: "dish3", restaurantId: "rest2", categoryId: "cat2", name: "Salmon Nigiri", description: "Salmon over rice", imageUrl: "https://example.com/d3.jpg", price: 2.5, currency: "USD" },
-];
-
 // In-memory cart keyed by authenticated userId (Phase 3 will use persistent storage)
-const carts: Record<string, { restaurantId: string | null; items: { dishId: string; quantity: number; name?: string; price?: number; currency?: string }[] }> = {};
+const carts: Record<
+  string,
+  {
+    restaurantId: string | null;
+    items: {
+      dishId: string;
+      quantity: number;
+      name?: string;
+      price?: number;
+      currency?: string;
+    }[];
+  }
+> = {};
 
 /**
  * Creates GraphQL context from request
@@ -62,19 +76,19 @@ function createContext(request: Request): GraphQLContext {
 function errorResponse(error: AppError, requestId?: string): Response {
   // Log internal error ID for debugging
   if (error.internalId) {
-    logger.error("request_error", { 
-      errorCode: error.code, 
+    logger.error("request_error", {
+      errorCode: error.code,
       internalId: error.internalId,
-      requestId 
+      requestId,
     });
   }
 
   return new Response(JSON.stringify({ errors: [error.toGraphQL()] }), {
     status: error.statusCode,
-    headers: { 
-      "Content-Type": "application/json", 
+    headers: {
+      "Content-Type": "application/json",
       "X-Request-Id": requestId || "",
-      ...CORS_HEADERS
+      ...CORS_HEADERS,
     },
   });
 }
@@ -82,9 +96,9 @@ function errorResponse(error: AppError, requestId?: string): Response {
 function jsonResponse(obj: any): Response {
   return new Response(JSON.stringify(obj), {
     status: 200,
-    headers: { 
+    headers: {
       "Content-Type": "application/json",
-      ...CORS_HEADERS
+      ...CORS_HEADERS,
     },
   });
 }
@@ -93,60 +107,63 @@ function jsonResponse(obj: any): Response {
  * Main request handler with auth integration
  */
 async function handleRequest(request: Request): Promise<Response> {
-    // Handle CORS preflight requests - MUST be before auth checks
-    if (request.method === "OPTIONS") {
-      return new Response(null, {
-        status: 200,
-        headers: CORS_HEADERS
-      });
-    }
+  // Handle CORS preflight requests - MUST be before auth checks
+  if (request.method === "OPTIONS") {
+    return new Response(null, {
+      status: 200,
+      headers: CORS_HEADERS,
+    });
+  }
 
-    // Phase 2: Auth context extraction
-    const context = createContext(request);
+  // Phase 2: Auth context extraction
+  const context = createContext(request);
 
-    // Return 401 if auth is invalid (per specs/05-telegram-auth.md)
-    if (!context.auth.valid) {
-      const requestId = crypto.randomUUID();
-      logger.authFailure(context.auth.errorCode || "unknown", requestId);
-      // Show actual error reason instead of generic message
-      const errorMessage = context.auth.errorCode === "EXPIRED" 
-        ? "X-Telegram-Init-Data has expired" 
+  // Return 401 if auth is invalid (per specs/05-telegram-auth.md)
+  if (!context.auth.valid) {
+    const requestId = crypto.randomUUID();
+    logger.authFailure(context.auth.errorCode || "unknown", requestId);
+    // Show actual error reason instead of generic message
+    const errorMessage =
+      context.auth.errorCode === "EXPIRED"
+        ? "X-Telegram-Init-Data has expired"
         : "Missing X-Telegram-Init-Data";
-      return errorResponse(unauthorizedError(errorMessage), requestId);
-    }
+    return errorResponse(unauthorizedError(errorMessage), requestId);
+  }
 
-   // Log authenticated user (avoid logging sensitive data in production)
-   logger.authSuccess(context.auth.userId);
+  // Log authenticated user (avoid logging sensitive data in production)
+  logger.authSuccess(context.auth.userId);
 
-   // Parse GraphQL request body
-   let body: any = {};
-   if (request.method === "POST") {
-     try {
-       body = await request.json();
-     } catch {
-       body = {};
-     }
-   }
-
-   const query: string = body?.query ?? "";
-   const variables = body?.variables ?? {};
-
-    // GraphQL resolver routing with auth context
+  // Parse GraphQL request body
+  let body: any = {};
+  if (request.method === "POST") {
     try {
-      const result = await resolveGraphQL(query, variables, context);
-      return jsonResponse({ data: result });
-    } catch (error) {
-      const requestId = crypto.randomUUID();
-      
-      if (error instanceof AppError) {
-        return errorResponse(error, requestId);
-      }
-
-      logger.error("unhandled_error", { error: error instanceof Error ? error.message : "Unknown" });
-      const internalErr = internalError(requestId);
-      return errorResponse(internalErr, requestId);
+      body = await request.json();
+    } catch {
+      body = {};
     }
- }
+  }
+
+  const query: string = body?.query ?? "";
+  const variables = body?.variables ?? {};
+
+  // GraphQL resolver routing with auth context
+  try {
+    const result = await resolveGraphQL(query, variables, context);
+    return jsonResponse({ data: result });
+  } catch (error) {
+    const requestId = crypto.randomUUID();
+
+    if (error instanceof AppError) {
+      return errorResponse(error, requestId);
+    }
+
+    logger.error("unhandled_error", {
+      error: error instanceof Error ? error.message : "Unknown",
+    });
+    const internalErr = internalError(requestId);
+    return errorResponse(internalErr, requestId);
+  }
+}
 
 /**
  * GraphQL resolver dispatcher - routes queries/mutations to handlers
@@ -155,40 +172,65 @@ async function handleRequest(request: Request): Promise<Response> {
 async function resolveGraphQL(
   query: string,
   variables: any,
-  context: GraphQLContext
+  context: GraphQLContext,
 ): Promise<any> {
   // Query resolvers
   if (query.includes("restaurants(") || query.includes("restaurants")) {
-    return { restaurants: resolveRestaurants(context) };
+    return { restaurants: await resolveRestaurants(context) };
   }
 
   if (query.includes("restaurantCategories")) {
-    const restaurantId = variables?.restaurantId || restaurants[0]?.id || "rest1";
-    return { restaurantCategories: resolveCategories(restaurantId, context) };
+    const restaurantId = variables?.restaurantId || "restA"; // Default to test restaurant ID
+    return {
+      restaurantCategories: await resolveCategories(restaurantId, context),
+    };
   }
 
   if (query.includes("categoryDishes")) {
-    const restaurantId = variables?.restaurantId || restaurants[0]?.id || "rest1";
-    const categoryId = variables?.categoryId || categories.find((c) => c.restaurantId === restaurantId)?.id;
-    return { categoryDishes: resolveDishes(restaurantId, categoryId, context) };
+    const restaurantId = variables?.restaurantId || "restA"; // Default to test restaurant ID
+    const categoryId = variables?.categoryId || "catA"; // Default to test category ID
+    return {
+      categoryDishes: await resolveDishes(restaurantId, categoryId, context),
+    };
   }
 
   // Mutation resolvers
   if (query.includes("placeOrder")) {
-    const input = variables?.input || { restaurantId: restaurants[0].id, items: [] };
+    const input =
+      variables?.input ||
+      ({
+        restaurantId: "restA", // Default to test restaurant ID
+        deliveryLocation: {
+          address: "123 Test Street",
+          city: "Test City",
+          country: "US",
+          latitude: 40.7128,
+          longitude: -74.006,
+        },
+        items: [],
+      } as PlaceOrderInputType);
     return { placeOrder: resolvePlaceOrder(input, context) };
   }
 
   // Phase 3: Cart Query Resolvers
   if (query.includes("cart(") || query.includes("cart")) {
-    if (!query.includes("addToCart") && !query.includes("updateCartItem") && !query.includes("removeCartItem") && !query.includes("clearCart")) {
+    if (
+      !query.includes("addToCart") &&
+      !query.includes("updateCartItem") &&
+      !query.includes("removeCartItem") &&
+      !query.includes("clearCart")
+    ) {
       return { cart: resolveCart(context) };
     }
   }
 
   // Phase 3: Cart Mutation Resolvers
   if (query.includes("addToCart")) {
-    const input = variables?.input || { dishId: "", quantity: 1, restaurantId: "" };
+    const input = variables?.input || {
+      dishId: "",
+      quantity: 1,
+      restaurantId: "",
+    };
     return { addToCart: resolveAddToCart(input, context) };
   }
 
@@ -211,29 +253,73 @@ async function resolveGraphQL(
 }
 
 // Resolver implementations receive GraphQLContext
-function resolveRestaurants(context: GraphQLContext): Restaurant[] {
+async function resolveRestaurants(
+  context: GraphQLContext,
+): Promise<Restaurant[]> {
   // Could filter based on context.auth.userId preferences
   console.log(`[Resolver] restaurants for user ${context.auth.userId}`);
-  return restaurants;
+  const contractRestaurants = await fetchRestaurants();
+  // Map contract restaurants to local restaurant format
+  return contractRestaurants.map((contractRest) => ({
+    id: contractRest.id,
+    name: contractRest.name,
+    categories: [], // Empty categories array as required by Restaurant type
+    deliveryLocations: undefined,
+  }));
 }
 
-function resolveCategories(restaurantId: string, context: GraphQLContext): Category[] {
-  console.log(`[Resolver] categories for restaurant ${restaurantId}, user ${context.auth.userId}`);
-  return categories.filter((c) => c.restaurantId === restaurantId);
+async function resolveCategories(
+  restaurantId: string,
+  context: GraphQLContext,
+): Promise<Category[]> {
+  console.log(
+    `[Resolver] categories for restaurant ${restaurantId}, user ${context.auth.userId}`,
+  );
+  const contractCategories = await fetchCategories();
+  // Map contract categories to local category format
+  return contractCategories.map((contractCat) => ({
+    id: contractCat.id,
+    restaurantId: restaurantId, // Use the restaurantId from the resolver argument
+    name: contractCat.name,
+    description: undefined,
+    imageUrl: undefined,
+  }));
 }
 
-function resolveDishes(restaurantId: string, categoryId: string | undefined, context: GraphQLContext): Dish[] {
-  console.log(`[Resolver] dishes for restaurant ${restaurantId}, category ${categoryId}, user ${context.auth.userId}`);
-  return dishes.filter((d) => d.restaurantId === restaurantId && d.categoryId === categoryId);
+async function resolveDishes(
+  restaurantId: string,
+  categoryId: string | undefined,
+  context: GraphQLContext,
+): Promise<Dish[]> {
+  console.log(
+    `[Resolver] dishes for restaurant ${restaurantId}, category ${categoryId}, user ${context.auth.userId}`,
+  );
+  const contractDishes = await fetchDishes(categoryId);
+  // Map contract dishes to local dish format
+  return contractDishes.map((contractDish) => ({
+    id: contractDish.id,
+    restaurantId: contractDish.restaurantId,
+    categoryId: contractDish.categoryId,
+    name: contractDish.name,
+    description: contractDish.description,
+    imageUrl: contractDish.imageUrl,
+    price: contractDish.price,
+    currency: contractDish.currency,
+  }));
 }
 
-function resolvePlaceOrder(input: PlaceOrderInput, context: GraphQLContext): PlaceOrderPayload {
+function resolvePlaceOrder(
+  input: PlaceOrderInputType,
+  context: GraphQLContext,
+): PlaceOrderPayload {
   // Access authenticated user from context
   const userId = context.auth.userId;
   const userName = context.auth.name;
-  
-  console.log(`[Resolver] placeOrder by user ${userId} (${userName}) for restaurant ${input.restaurantId}`);
-  
+
+  console.log(
+    `[Resolver] placeOrder by user ${userId} (${userName}) for restaurant ${input.restaurantId}`,
+  );
+
   // Create order with authenticated user info
   return {
     orderId: `order_${Date.now()}_${userId}`,
@@ -246,14 +332,19 @@ function resolvePlaceOrder(input: PlaceOrderInput, context: GraphQLContext): Pla
 // Phase 3: Cart Resolver Implementations
 // ============================================================
 
-function resolveCart(context: GraphQLContext): { restaurantId: string | null; items: any[]; total: number; itemCount: number } {
+function resolveCart(context: GraphQLContext): {
+  restaurantId: string | null;
+  items: any[];
+  total: number;
+  itemCount: number;
+} {
   const userId = context.auth.userId;
   console.log(`[Resolver] cart for user ${userId}`);
-  
+
   const cart = getCartSync(userId);
   const total = getCartTotalSync(userId);
   const itemCount = getCartItemCountSync(userId);
-  
+
   return {
     restaurantId: cart.restaurantId || null,
     items: cart.items,
@@ -262,14 +353,24 @@ function resolveCart(context: GraphQLContext): { restaurantId: string | null; it
   };
 }
 
-function resolveAddToCart(input: AddToCartInput, context: GraphQLContext): { restaurantId: string | null; items: any[]; total: number; itemCount: number } {
+function resolveAddToCart(
+  input: AddToCartInput,
+  context: GraphQLContext,
+): {
+  restaurantId: string | null;
+  items: any[];
+  total: number;
+  itemCount: number;
+} {
   const userId = context.auth.userId;
-  console.log(`[Resolver] addToCart for user ${userId}, dish ${input.dishId}, quantity ${input.quantity}`);
-  
+  console.log(
+    `[Resolver] addToCart for user ${userId}, dish ${input.dishId}, quantity ${input.quantity}`,
+  );
+
   const cart = addToCartSync(userId, input);
   const total = getCartTotalSync(userId);
   const itemCount = getCartItemCountSync(userId);
-  
+
   return {
     restaurantId: cart.restaurantId || null,
     items: cart.items,
@@ -278,14 +379,24 @@ function resolveAddToCart(input: AddToCartInput, context: GraphQLContext): { res
   };
 }
 
-function resolveUpdateCartItem(input: UpdateCartItemInput, context: GraphQLContext): { restaurantId: string | null; items: any[]; total: number; itemCount: number } {
+function resolveUpdateCartItem(
+  input: UpdateCartItemInput,
+  context: GraphQLContext,
+): {
+  restaurantId: string | null;
+  items: any[];
+  total: number;
+  itemCount: number;
+} {
   const userId = context.auth.userId;
-  console.log(`[Resolver] updateCartItem for user ${userId}, dish ${input.dishId}, quantity ${input.quantity}`);
-  
+  console.log(
+    `[Resolver] updateCartItem for user ${userId}, dish ${input.dishId}, quantity ${input.quantity}`,
+  );
+
   const cart = updateCartItemSync(userId, input);
   const total = getCartTotalSync(userId);
   const itemCount = getCartItemCountSync(userId);
-  
+
   return {
     restaurantId: cart.restaurantId || null,
     items: cart.items,
@@ -294,14 +405,22 @@ function resolveUpdateCartItem(input: UpdateCartItemInput, context: GraphQLConte
   };
 }
 
-function resolveRemoveCartItem(dishId: string, context: GraphQLContext): { restaurantId: string | null; items: any[]; total: number; itemCount: number } {
+function resolveRemoveCartItem(
+  dishId: string,
+  context: GraphQLContext,
+): {
+  restaurantId: string | null;
+  items: any[];
+  total: number;
+  itemCount: number;
+} {
   const userId = context.auth.userId;
   console.log(`[Resolver] removeCartItem for user ${userId}, dish ${dishId}`);
-  
+
   const cart = removeFromCartSync(userId, dishId);
   const total = getCartTotalSync(userId);
   const itemCount = getCartItemCountSync(userId);
-  
+
   return {
     restaurantId: cart.restaurantId || null,
     items: cart.items,
@@ -310,12 +429,17 @@ function resolveRemoveCartItem(dishId: string, context: GraphQLContext): { resta
   };
 }
 
-function resolveClearCart(context: GraphQLContext): { restaurantId: string | null; items: any[]; total: number; itemCount: number } {
+function resolveClearCart(context: GraphQLContext): {
+  restaurantId: string | null;
+  items: any[];
+  total: number;
+  itemCount: number;
+} {
   const userId = context.auth.userId;
   console.log(`[Resolver] clearCart for user ${userId}`);
-  
-    clearCartSync(userId);
-  
+
+  clearCartSync(userId);
+
   return {
     restaurantId: null,
     items: [],
@@ -324,4 +448,7 @@ function resolveClearCart(context: GraphQLContext): { restaurantId: string | nul
   };
 }
 
-export { handleRequest, GraphQLContext, createContext };
+// Register the fetch event listener
+addEventListener('fetch', (event) => {
+  event.respondWith(handleRequest(event.request))
+})

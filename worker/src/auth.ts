@@ -8,9 +8,10 @@ import { logger } from "./logger";
 import { AuthContext } from "./contracts";
 
 // Bot token for HMAC-SHA256 validation (Cloudflare Worker env)
-const TELEGRAM_BOT_TOKEN = typeof globalThis !== 'undefined' 
-  ? (globalThis as any)?.TELEGRAM_BOT_TOKEN || "" 
-  : "";
+const TELEGRAM_BOT_TOKEN =
+  typeof globalThis !== "undefined"
+    ? (globalThis as any)?.TELEGRAM_BOT_TOKEN || ""
+    : "";
 
 /**
  * Permission level for authorization
@@ -31,18 +32,21 @@ export interface PermissionResult {
 
 /**
  * Check if user has required permission
- * 
+ *
  * In production, this would check against a permission store or role.
  * For Telegram Mini Apps, permissions could be based on:
  * - User is premium
  * - User is in allowed list
  * - User has specific role
- * 
+ *
  * @param userId - The Telegram user ID to check
  * @param requiredPermission - The permission level required
  * @returns PermissionResult with allowed status
  */
-export function checkPermission(userId: string, requiredPermission: Permission): PermissionResult {
+export function checkPermission(
+  userId: string,
+  requiredPermission: Permission,
+): PermissionResult {
   // Simple in-test policy: explicitly forbid a known test user to simulate 403s
   if (userId === "forbidden_user") {
     return { allowed: false, reason: "forbidden_user" };
@@ -60,16 +64,16 @@ export function isAdmin(userId: string): boolean {
 
 /**
  * Validates Telegram Init Data header and returns AuthContext.
- * 
+ *
  * Validation rules (per specs/05-telegram-auth.md):
  * - Init data must be present and not empty
  * - In production: perform HMAC-SHA256 verification against botToken
  * - Check for expiration (auth_date should not be too old)
- * 
+ *
  * Auth status codes:
  * - 401: Missing or invalid X-Telegram-Init-Data header
  * - 403: User lacks required permissions
- * 
+ *
  * @param header - The X-Telegram-Init-Data header value
  * @returns AuthContext with user info if valid, or invalid context with error
  */
@@ -85,16 +89,19 @@ export function validateInitData(header: string | null): AuthContext {
     };
   }
 
-  console.log("[DEBUG] validateInitData - header received:", header.substring(0, 50));
+  console.log(
+    "[DEBUG] validateInitData - header received:",
+    header.substring(0, 50),
+  );
 
   try {
     // Parse URL-encoded init data
     const params = new URLSearchParams(header);
-    
+
     // Check for required fields
     const hash = params.get("hash");
     const authDate = params.get("auth_date");
-    
+
     if (!hash || !authDate) {
       logger.authFailure("missing_required_fields");
       return {
@@ -108,7 +115,7 @@ export function validateInitData(header: string | null): AuthContext {
     const authTimestamp = parseInt(authDate, 10);
     const now = Math.floor(Date.now() / 1000);
     const maxAge = 24 * 60 * 60; // 24 hours in seconds
-    
+
     if (now - authTimestamp > maxAge) {
       logger.authExpired();
       return {
@@ -137,11 +144,15 @@ export function validateInitData(header: string | null): AuthContext {
     const userJson = params.get("user");
     let name: string | undefined;
     let language: string | undefined;
-    
+
     if (userJson) {
       try {
         const user = JSON.parse(userJson);
-        name = user.first_name ? (user.last_name ? `${user.first_name} ${user.last_name}` : user.first_name) : undefined;
+        name = user.first_name
+          ? user.last_name
+            ? `${user.first_name} ${user.last_name}`
+            : user.first_name
+          : undefined;
         language = user.language_code;
       } catch {
         // User parsing failed, continue without name
@@ -149,7 +160,7 @@ export function validateInitData(header: string | null): AuthContext {
     }
 
     const userId = params.get("id") || params.get("user_id") || "";
-    
+
     logger.authSuccess(userId);
 
     return {
@@ -175,30 +186,40 @@ export function validateInitData(header: string | null): AuthContext {
  */
 export function extractAuthContext(request: Request): AuthContext {
   // Check for X-Telegram-Init-Data first, fallback to Telegram-Init-Data
-  const initData = request.headers.get("X-Telegram-Init-Data") 
-    ?? request.headers.get("Telegram-Init-Data");
-  console.log("[DEBUG] extractAuthContext - header value:", initData ? `"${initData.substring(0, 50)}..."` : "null");
+  const initData =
+    request.headers.get("X-Telegram-Init-Data") ??
+    request.headers.get("Telegram-Init-Data");
+  console.log(
+    "[DEBUG] extractAuthContext - header value:",
+    initData ? `"${initData.substring(0, 50)}..."` : "null",
+  );
   return validateInitData(initData);
 }
 
 /**
  * Require a specific permission level
  * Returns 403 error context if permission denied
- * 
+ *
  * @param auth - The authenticated context
  * @param requiredPermission - The permission level required
  * @returns AuthContext with valid=false if permission denied
  */
-export function requirePermission(auth: AuthContext, requiredPermission: Permission): AuthContext {
+export function requirePermission(
+  auth: AuthContext,
+  requiredPermission: Permission,
+): AuthContext {
   if (!auth.valid) {
     return auth; // Return as-is if not authenticated
   }
 
   const permissionResult = checkPermission(auth.userId, requiredPermission);
-  
+
   if (!permissionResult.allowed) {
-    logger.authFailure(`permission_denied: ${permissionResult.reason || requiredPermission}`, auth.userId);
-    
+    logger.authFailure(
+      `permission_denied: ${permissionResult.reason || requiredPermission}`,
+      auth.userId,
+    );
+
     return {
       ...auth,
       valid: false,
@@ -236,7 +257,10 @@ export function verifyInitData(_initData: string): boolean {
   return result.valid;
 }
 
-export function parseAuth(_initData: string): { userId: string; name?: string } {
+export function parseAuth(_initData: string): {
+  userId: string;
+  name?: string;
+} {
   const result = validateInitData(_initData);
   return { userId: result.userId, name: result.name };
 }

@@ -42,7 +42,7 @@ export class SaleorClient {
   async execute<T = any>(
     query: string,
     variables?: Record<string, any>,
-    operationName?: string
+    operationName?: string,
   ): Promise<SaleorResponse<T>> {
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
@@ -86,7 +86,10 @@ export class SaleorClient {
       return {
         errors: [
           {
-            message: error instanceof Error ? error.message : "Network error connecting to Saleor",
+            message:
+              error instanceof Error
+                ? error.message
+                : "Network error connecting to Saleor",
           },
         ],
       };
@@ -99,7 +102,7 @@ export class SaleorClient {
   async mutate<T = any>(
     mutation: string,
     variables?: Record<string, any>,
-    operationName?: string
+    operationName?: string,
   ): Promise<{ data?: T; error?: string }> {
     const response = await this.execute<T>(mutation, variables, operationName);
 
@@ -161,8 +164,11 @@ export const ORDER_CREATE_MUTATION = `
  */
 export function isSaleorConfigured(): boolean {
   if (typeof globalThis !== "undefined") {
-    const env = (globalThis as any).__env__ as Record<string, string> | undefined;
-    return !!(env?.SALEOR_API_URL && env?.SALEOR_TOKEN);
+    const saleorUrl = (globalThis as any).SALEOR_API_URL as string | undefined;
+    const saleorToken = (globalThis as any).SALEOR_TOKEN as string | undefined;
+    console.log('DEBUG: SALEOR_API_URL from globalThis:', saleorUrl);
+    console.log('DEBUG: SALEOR_TOKEN from globalThis:', saleorToken ? `set (length: ${saleorToken.length})` : 'unset');
+    return !!(saleorUrl && saleorToken);
   }
   return false;
 }
@@ -172,11 +178,14 @@ export function isSaleorConfigured(): boolean {
  */
 export function getSaleorClient(): SaleorClient | null {
   if (typeof globalThis !== "undefined") {
-    const env = (globalThis as any).__env__ as Record<string, string> | undefined;
-    if (env?.SALEOR_API_URL && env?.SALEOR_TOKEN) {
+    const saleorUrl = (globalThis as any).SALEOR_API_URL as string | undefined;
+    const saleorToken = (globalThis as any).SALEOR_TOKEN as string | undefined;
+    console.log('DEBUG: getSaleorClient - SALEOR_API_URL from globalThis:', saleorUrl);
+    console.log('DEBUG: getSaleorClient - SALEOR_TOKEN from globalThis:', saleorToken ? `set (length: ${saleorToken.length})` : 'unset');
+    if (saleorUrl && saleorToken) {
       return new SaleorClient({
-        apiUrl: env.SALEOR_API_URL,
-        token: env.SALEOR_TOKEN,
+        apiUrl: saleorUrl,
+        token: saleorToken,
       });
     }
   }

@@ -27,13 +27,13 @@ export enum Permission {
 // Phase 3: Cart Types (In-Memory Cart)
 // ============================================================
 export interface CartItem {
-   dishId: string;
-   quantity: number;
-   name?: string;
-   price?: number;
-   currency?: string;
-   description?: string;
-   imageUrl?: string;
+  dishId: string;
+  quantity: number;
+  name?: string;
+  price?: number;
+  currency?: string;
+  description?: string;
+  imageUrl?: string;
 }
 
 export interface CartState {
@@ -49,14 +49,14 @@ export interface Cart {
 }
 
 export interface AddToCartInput {
-   dishId: string;
-   quantity: number;
-   name: string;
-   price: number;
-   currency: string;
-   description: string;
-   imageUrl: string;
-   restaurantId: string;
+  dishId: string;
+  quantity: number;
+  name: string;
+  price: number;
+  currency: string;
+  description: string;
+  imageUrl: string;
+  restaurantId: string;
 }
 
 export interface UpdateCartItemInput {
@@ -83,24 +83,24 @@ export interface Category {
 }
 
 export interface Dish {
-   id: string;
-   name: string;
-   description: string;
-   price: number;
-   currency: string;
-   categoryId: string;
-   imageUrl: string;
-   restaurantId: string;
+  id: string;
+  name: string;
+  description: string;
+  price: number;
+  currency: string;
+  categoryId: string;
+  imageUrl: string;
+  restaurantId: string;
 }
 
 export interface DeliveryLocation {
-   id?: string;
-   address: string;
-   city?: string;
-   country?: string;
-   latitude?: number;
-   longitude?: number;
-   mapsUrl?: string;
+  id?: string;
+  address: string;
+  city?: string;
+  country?: string;
+  latitude?: number;
+  longitude?: number;
+  mapsUrl?: string;
 }
 
 export interface OrderItemInput {

@@ -1,0 +1,62 @@
+{
+  "schema_version": "1.0.0",
+  "title": "Saleor Real Data Integration",
+  "swarm": "default",
+  "current_phase": 1,
+  "phases": [
+    {
+      "id": 1,
+      "name": "Saleor Data Service",
+      "status": "in_progress",
+      "tasks": [
+        {
+          "id": "1.1",
+          "phase": 1,
+          "status": "in_progress",
+          "size": "medium",
+          "description": "Create Saleor data service with product/category queries",
+          "depends": [],
+          "acceptance": "saleorService.ts created with queries for products, productTypes, collections",
+          "files_touched": []
+        },
+        {
+          "id": "1.2",
+          "phase": 1,
+          "status": "completed",
+          "size": "medium",
+          "description": "Add Saleor GraphQL queries for products and categories",
+          "depends": [
+            "1.1"
+          ],
+          "acceptance": "Restaurant, Category, Dish fetched from Saleor and mapped correctly",
+          "files_touched": []
+        },
+        {
+          "id": "1.3",
+          "phase": 1,
+          "status": "pending",
+          "size": "medium",
+          "description": "Update resolvers to use Saleor data service",
+          "depends": [
+            "1.2"
+          ],
+          "acceptance": "Restaurants, restaurantCategories, categoryDishes return real data",
+          "files_touched": []
+        },
+        {
+          "id": "1.4",
+          "phase": 1,
+          "status": "pending",
+          "size": "small",
+          "description": "Update tests for Saleor integration",
+          "depends": [
+            "1.3"
+          ],
+          "acceptance": "Tests pass with real Saleor data queries",
+          "files_touched": []
+        }
+      ]
+    }
+  ],
+  "migration_status": "native"
+}

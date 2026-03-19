@@ -31,7 +31,7 @@ export interface LogEntry {
 function createLogEntry(
   level: LogLevel,
   event: string,
-  extra?: Record<string, unknown>
+  extra?: Record<string, unknown>,
 ): LogEntry {
   return {
     level,
