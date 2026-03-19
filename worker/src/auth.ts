@@ -76,6 +76,7 @@ export function isAdmin(userId: string): boolean {
 export function validateInitData(header: string | null): AuthContext {
   // Handle missing header
   if (!header || header.trim().length === 0) {
+    console.log("[DEBUG] validateInitData - missing/empty header");
     logger.authFailure("missing_header");
     return {
       userId: "",
@@ -83,6 +84,8 @@ export function validateInitData(header: string | null): AuthContext {
       errorCode: "UNAUTHENTICATED",
     };
   }
+
+  console.log("[DEBUG] validateInitData - header received:", header.substring(0, 50));
 
   try {
     // Parse URL-encoded init data
@@ -97,7 +100,7 @@ export function validateInitData(header: string | null): AuthContext {
       return {
         userId: "",
         valid: false,
-        errorCode: "UNAUTHENTICATED",
+        errorCode: "INVALID_FORMAT",
       };
     }
 
@@ -111,7 +114,7 @@ export function validateInitData(header: string | null): AuthContext {
       return {
         userId: "",
         valid: false,
-        errorCode: "UNAUTHENTICATED",
+        errorCode: "EXPIRED",
       };
     }
 
@@ -168,9 +171,13 @@ export function validateInitData(header: string | null): AuthContext {
 /**
  * Middleware-style function to validate request headers
  * Returns AuthContext for injection into GraphQL context
+ * Supports both "X-Telegram-Init-Data" and "Telegram-Init-Data" header names
  */
 export function extractAuthContext(request: Request): AuthContext {
-  const initData = request.headers.get("X-Telegram-Init-Data");
+  // Check for X-Telegram-Init-Data first, fallback to Telegram-Init-Data
+  const initData = request.headers.get("X-Telegram-Init-Data") 
+    ?? request.headers.get("Telegram-Init-Data");
+  console.log("[DEBUG] extractAuthContext - header value:", initData ? `"${initData.substring(0, 50)}..."` : "null");
   return validateInitData(initData);
 }
 

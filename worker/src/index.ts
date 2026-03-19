@@ -10,9 +10,10 @@ import { extractAuthContext } from "./auth";
 import { getCartSync, addToCartSync, updateCartItemSync, removeFromCartSync, clearCartSync, getCartTotalSync, getCartItemCountSync } from "./cart";
 
 // CORS headers for preflight and actual requests
+// Allow any localhost port during development (5173, 5174, etc.)
 const CORS_HEADERS = {
-  "Access-Control-Allow-Origin": "http://localhost:5173",
-  "Access-Control-Allow-Headers": "Content-Type, X-Telegram-Init-Data",
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "Content-Type, X-Telegram-Init-Data, Telegram-Init-Data",
   "Access-Control-Allow-Methods": "GET, POST, OPTIONS"
 };
 
@@ -107,7 +108,11 @@ async function handleRequest(request: Request): Promise<Response> {
     if (!context.auth.valid) {
       const requestId = crypto.randomUUID();
       logger.authFailure(context.auth.errorCode || "unknown", requestId);
-      return errorResponse(unauthorizedError("Missing X-Telegram-Init-Data"), requestId);
+      // Show actual error reason instead of generic message
+      const errorMessage = context.auth.errorCode === "EXPIRED" 
+        ? "X-Telegram-Init-Data has expired" 
+        : "Missing X-Telegram-Init-Data";
+      return errorResponse(unauthorizedError(errorMessage), requestId);
     }
 
    // Log authenticated user (avoid logging sensitive data in production)
