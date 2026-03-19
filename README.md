@@ -149,14 +149,69 @@ In Cloudflare Dashboard → Your Worker → Settings → Environment Variables:
 | `SALEOR_TOKEN` | (your Saleor token) | Secret |
 | `TELEGRAM_BOT_TOKEN` | (your Telegram bot token) | Secret |
 
-**4. Set KV Namespace for Production:**
-Create a KV namespace in Cloudflare Dashboard:
+**4. Set Up KV Namespace (Required for Cart Persistence):**
+
+The backend uses Cloudflare KV to persist cart data. You need to create a namespace and configure it.
+
+**Option A: Create via Wrangler CLI (Recommended)**
+
 ```bash
+# Login to Cloudflare (if not already)
+wrangler login
+
+# Create the KV namespace
 wrangler kv:namespace create CARTS
 ```
-Then update the `wrangler.toml` with the production KV namespace ID.
 
-**5. Verify Deployment:**
+This will output something like:
+```
+{ binding = "CARTS", id = "xxxxxxxxxxxxxxxxxxxx" }
+```
+
+**Option B: Create via Cloudflare Dashboard**
+
+1. Go to Cloudflare Dashboard → **Workers & Pages**
+2. Select your worker → **Settings** → **KV Namespaces**
+3. Click **Create namespace**
+4. Name it `CARTS` and create
+
+**Update wrangler.toml with your namespace ID:**
+
+```toml
+# Development KV namespace (local testing)
+[[kv_namespaces]]
+binding = "CARTS"
+id = "xxxxxxxxxxxxxxxxxxxx"  # ← Replace with your actual namespace ID
+preview_id = "xxxxxxxxxxxxxxxxxxxx"
+```
+
+**5. Set Required Secrets:**
+
+The following secrets must be set via `wrangler secret put`:
+
+```bash
+# Required secrets
+wrangler secret put SALEOR_API_URL
+wrangler secret put SALEOR_TOKEN
+wrangler secret put TELEGRAM_BOT_TOKEN
+
+# Optional: Set DEBUG for verbose logging
+wrangler secret put DEBUG
+# Enter "true" for development, "false" for production
+```
+
+**Or set via Cloudflare Dashboard:**
+1. Go to your Worker → **Settings** → **Environment Variables**
+2. Add each variable as a **Secret** (not plain text for tokens)
+
+| Secret | Description | Example |
+|--------|-------------|---------|
+| `SALEOR_API_URL` | Your Saleor GraphQL endpoint | `https://your-store.saleor.cloud/graphql/` |
+| `SALEOR_TOKEN` | Saleor API authentication token | `Authorization: Bearer xxx` |
+| `TELEGRAM_BOT_TOKEN` | Telegram bot token for auth validation | `123456:ABC-xxx` |
+| `DEBUG` | Enable debug logging | `true` or `false` |
+
+**6. Verify Deployment:**
 - Push a commit to the main branch
 - Cloudflare will automatically build and deploy
 - Check deployment status in Cloudflare Dashboard → Workers & Pages

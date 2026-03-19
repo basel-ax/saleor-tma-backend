@@ -50,8 +50,8 @@ name = "saleor-tma-backend"
 # Development KV namespace (local testing)
 [[kv_namespaces]]
 binding = "CARTS"
-id = "aabbccddeeff11223344556677889900"
-preview_id = "aabbccddeeff11223344556677889900"
+id = "7cc35a4f4cf747e29cc5fd7110fefd7a"
+preview_id = "7cc35a4f4cf747e29cc5fd7110fefd7a"
 
 # Production KV namespace (uncomment after creating)
 # [[kv_namespaces]]
