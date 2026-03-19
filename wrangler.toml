@@ -2,14 +2,14 @@
 # Phase 6: Deployment Scaffolding
 # Phase 9: KV Cart Persistence Enabled
 
-name = "tma-graphql-worker"
+name = "saleor-tma-backend"
 main = "worker/src/index.ts"
 compatibility_date = "2026-03-06"
 workers_dev = true
 
 # Build configuration for TypeScript
 [build]
-command = "npm run build"
+command = "cd worker && pnpm install && pnpm run build"
 cwd = "worker"
 
 # Environment variables exposed to the worker
@@ -27,7 +27,7 @@ vars = { DEBUG = "true" }
 
 # Production environment
 [env.production]
-name = "tma-graphql-worker-prod"
+name = "saleor-tma-backend"
 
 # Production secrets (set via wrangler secret put)
 # wrangler secret put SALEOR_API_URL

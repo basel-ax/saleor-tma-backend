@@ -135,9 +135,14 @@ To set up automatic deployment when pushing to the main branch via GitHub/GitLab
 |---------|-------|
 | **Production branch** | `main` |
 | **Build command** | `cd worker && pnpm install && pnpm run build` |
-| **Build output directory** | `/worker` |
+| **Build output directory** | `worker/dist` |
 
-> **Note**: The project uses `pnpm` due to workspace dependencies. If using npm, replace with `npm install && npm run build`.
+> **Note**: The project uses `pnpm` due to workspace dependencies. If using npm, replace with `cd worker && npm install && npm run build`.
+>
+> **Troubleshooting "can't cd to worker" error:**
+> 1. Verify `worker/` directory is pushed to git: `git ls-files | grep worker`
+> 2. If using Cloudflare **Pages**: Set **Root directory** to `/` (not blank)
+> 3. The `wrangler.toml` has been updated with `cd worker && pnpm install && pnpm run build` as the build command
 
 **3. Configure Environment Variables:**
 In Cloudflare Dashboard → Your Worker → Settings → Environment Variables:
