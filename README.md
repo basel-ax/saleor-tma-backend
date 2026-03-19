@@ -310,6 +310,140 @@ Telegram Mini App
 
 ---
 
+## GraphQL Error Reference
+
+All GraphQL responses that encounter errors follow a standardized format. Errors are returned in the `errors` array of the response.
+
+### Error Response Format
+
+```json
+{
+  "errors": [
+    {
+      "message": "Human-readable error description",
+      "code": "ERROR_CODE",
+      "field": "optional_field_name",
+      "internalId": "optional_internal_trace_id"
+    }
+  ]
+}
+```
+
+### Error Codes
+
+| Code | HTTP Status | Description | Common Causes |
+|------|-------------|-------------|--------------|
+| `UNAUTHENTICATED` | 401 | Authentication required | Missing or invalid `X-Telegram-Init-Data` header |
+| `FORBIDDEN` | 403 | Permission denied | Valid auth but user lacks required permissions |
+| `BAD_USER_INPUT` | 400 | Invalid input | Malformed request body, missing required fields, invalid values |
+| `NOT_FOUND` | 404 | Resource not found | Requested restaurant, category, or dish ID doesn't exist |
+| `RATE_LIMITED` | 429 | Too many requests | (Reserved for future use) |
+| `INTERNAL_ERROR` | 500 | Server error | Unexpected failures with internal tracking ID |
+
+### Error Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `message` | string | Human-readable description of what went wrong |
+| `code` | enum | Standardized error code (see table above) |
+| `field` | string? | Which input field caused the error (for `BAD_USER_INPUT`) |
+| `internalId` | string? | Internal tracking ID for support (for `INTERNAL_ERROR`) |
+
+### Example Error Responses
+
+**Missing Authentication:**
+```json
+{
+  "errors": [
+    {
+      "message": "Authentication required. Please refresh the page.",
+      "code": "UNAUTHENTICATED"
+    }
+  ]
+}
+```
+
+**Invalid Input:**
+```json
+{
+  "errors": [
+    {
+      "message": "Invalid quantity",
+      "code": "BAD_USER_INPUT",
+      "field": "quantity"
+    }
+  ]
+}
+```
+
+**Resource Not Found:**
+```json
+{
+  "errors": [
+    {
+      "message": "The requested item was not found.",
+      "code": "NOT_FOUND"
+    }
+  ]
+}
+```
+
+**Internal Server Error:**
+```json
+{
+  "errors": [
+    {
+      "message": "Something went wrong. Please try again.",
+      "code": "INTERNAL_ERROR",
+      "internalId": "abc123def456"
+    }
+  ]
+}
+```
+
+### Handling Errors in Client Code
+
+```typescript
+async function graphqlRequest(query: string, variables?: Record<string, unknown>) {
+  const response = await fetch('/graphql', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Telegram-Init-Data': telegramInitData,
+    },
+    body: JSON.stringify({ query, variables }),
+  });
+
+  const result = await response.json();
+
+  if (result.errors) {
+    const error = result.errors[0];
+    switch (error.code) {
+      case 'UNAUTHENTICATED':
+        // Redirect to re-authenticate
+        break;
+      case 'FORBIDDEN':
+        // Show permission denied message
+        break;
+      case 'BAD_USER_INPUT':
+        // Highlight the error.field and show error.message
+        break;
+      case 'NOT_FOUND':
+        // Show "item not found" message
+        break;
+      default:
+        // Generic error handling
+        break;
+    }
+    throw new Error(error.message);
+  }
+
+  return result.data;
+}
+```
+
+---
+
 ## What's Next
 
 - Review [DECISION_LOG.md](DECISION_LOG.md) for architectural decisions
