@@ -1,0 +1,16 @@
+{
+  "name": "saleor-tma-backend",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "build": "cd worker && pnpm run build",
+    "dev": "cd worker && pnpm run dev",
+    "dev:local": "cd worker && pnpm run dev:local",
+    "test": "cd worker && pnpm test",
+    "deploy": "cd worker && wrangler deploy"
+  },
+  "packageManager": "pnpm@9.0.0",
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
