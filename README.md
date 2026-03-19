@@ -120,39 +120,52 @@ wrangler secret put TELEGRAM_BOT_TOKEN
 wrangler deploy
 ```
 
-#### Auto-deploy on Push to Main Branch
+#### Auto-deploy on Push to Main Branch (Git Repository)
 
-To set up automatic deployment when pushing to the main branch:
+To set up automatic deployment when pushing to the main branch via GitHub/GitLab/Bitbucket:
 
-1. **Connect your GitHub/GitLab repository to Cloudflare:**
-   - Go to Cloudflare Dashboard → Workers & Pages
-   - Select your worker (`tma-graphql-worker` or similar)
-   - Go to "Settings" → "Git integration"
-   - Connect your GitHub/GitLab account and select this repository
-   - Set the production branch to `main`
-   - Set the build command to `npm run build` (if using npm) or `pnpm run build` (if using pnpm)
-   - Set the build output directory to `./worker` (if not already set)
+**1. Connect Repository to Cloudflare:**
+- Go to Cloudflare Dashboard → Workers & Pages → Create Application → Connect to Git
+- Select your Git provider and authorize Cloudflare
+- Select your repository (`saleor-tma-backend`)
 
-2. **Configure environment variables in Cloudflare Dashboard:**
-   - Go to your worker's "Settings" → "Variables"
-   - Under "Secrets", add:
-     - `SALEOR_API_URL`
-     - `SALEOR_TOKEN`
-     - `TELEGRAM_BOT_TOKEN`
-   - Under "Environment Variables" (if needed):
-     - `BACKEND_BASE_URL` (optional)
-     - `DEBUG` (optional, set to `false` for production)
+**2. Configure Build Settings:**
 
-3. **Enable automatic deployments:**
-   - In the Git integration settings, ensure "Deploy on push to main branch" is enabled
-   - Optionally enable preview deployments for pull requests
+| Setting | Value |
+|---------|-------|
+| **Production branch** | `main` |
+| **Build command** | `cd worker && pnpm install && pnpm run build` |
+| **Build output directory** | `/worker` |
 
-4. **Verify the setup:**
-   - Push a commit to the main branch
-   - Cloudflare will automatically build and deploy your worker
-   - Check the deployment logs in the Cloudflare dashboard for any issues
+> **Note**: The project uses `pnpm` due to workspace dependencies. If using npm, replace with `npm install && npm run build`.
 
-> **Note**: For local development, continue using `wrangler dev` as described in the Development Setup section.
+**3. Configure Environment Variables:**
+In Cloudflare Dashboard → Your Worker → Settings → Environment Variables:
+
+| Variable | Value | Type |
+|----------|-------|------|
+| `DEBUG` | `false` | Variable |
+| `SALEOR_API_URL` | (your Saleor API URL) | Secret |
+| `SALEOR_TOKEN` | (your Saleor token) | Secret |
+| `TELEGRAM_BOT_TOKEN` | (your Telegram bot token) | Secret |
+
+**4. Set KV Namespace for Production:**
+Create a KV namespace in Cloudflare Dashboard:
+```bash
+wrangler kv:namespace create CARTS
+```
+Then update the `wrangler.toml` with the production KV namespace ID.
+
+**5. Verify Deployment:**
+- Push a commit to the main branch
+- Cloudflare will automatically build and deploy
+- Check deployment status in Cloudflare Dashboard → Workers & Pages
+
+**6. Alternative: Deployments Tab (Pages)**
+If using Cloudflare Pages instead of Workers:
+- Go to Cloudflare Dashboard → Workers & Pages → Select your project
+- Go to "Deployments" tab
+- Click "Retry deployment" to re-deploy from a specific commit
 
 ---
 
