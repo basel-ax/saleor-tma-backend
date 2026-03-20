@@ -254,384 +254,410 @@ describe("fetchRestaurants", () => {
 // ============================================================
 
 describe("fetchCategories", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
+   beforeEach(() => {
+     vi.clearAllMocks();
+   });
 
-  it("should return Category[] from Saleor when Saleor is configured", async () => {
-    // Arrange
-    const mockResponse: SaleorResponse<{
-      productTypes: { edges: { node: (typeof mockSaleorCategories)[0] }[] };
-    }> = {
-      data: {
-        productTypes: {
-          edges: mockSaleorCategories.map((c) => ({ node: c })),
-        },
-      },
-    };
+   it("should return Category[] from Saleor when Saleor is configured", async () => {
+     // Arrange
+     const mockResponse: SaleorResponse<{
+       productTypes: { edges: { node: (typeof mockSaleorCategories)[0] }[] };
+     }> = {
+       data: {
+         productTypes: {
+           edges: mockSaleorCategories.map((c) => ({ node: c })),
+         },
+       },
+     };
 
-    vi.mocked(isSaleorConfigured).mockReturnValue(true);
-    vi.mocked(getSaleorClient).mockReturnValue(createMockClient(mockResponse));
+     vi.mocked(isSaleorConfigured).mockReturnValue(true);
+     vi.mocked(getSaleorClient).mockReturnValue(createMockClient(mockResponse));
 
-    // Act
-    const result = await fetchCategories();
+     // Act
+     const result = await fetchCategories("restA");
 
-    // Assert
-    expect(result).toHaveLength(2);
-    expect(result[0]).toEqual({
-      id: "saleor_cat_1",
-      name: "Saleor Category 1",
-    });
-    expect(result[1]).toEqual({
-      id: "saleor_cat_2",
-      name: "Saleor Category 2",
-    });
-  });
+     // Assert
+     expect(result).toHaveLength(2);
+     expect(result[0]).toEqual({
+       id: "saleor_cat_1",
+       name: "Saleor Category 1",
+     });
+     expect(result[1]).toEqual({
+       id: "saleor_cat_2",
+       name: "Saleor Category 2",
+     });
+   });
 
-  it("should fall back to mock categories when Saleor is not configured", async () => {
-    // Arrange
-    vi.mocked(isSaleorConfigured).mockReturnValue(false);
+   it("should fall back to mock categories when Saleor is not configured", async () => {
+     // Arrange
+     vi.mocked(isSaleorConfigured).mockReturnValue(false);
 
-    // Act
-    const result = await fetchCategories();
+     // Act
+     const result = await fetchCategories("restA");
 
-    // Assert
-    expect(result).toHaveLength(2);
-    expect(result[0]).toEqual({
-      id: TEST_CATEGORIES.CAT_A.id,
-      name: TEST_CATEGORIES.CAT_A.name,
-    });
-    expect(result[1]).toEqual({
-      id: TEST_CATEGORIES.CAT_B.id,
-      name: TEST_CATEGORIES.CAT_B.name,
-    });
-  });
+     // Assert
+     expect(result).toHaveLength(2);
+     expect(result[0]).toEqual({
+       id: TEST_CATEGORIES.CAT_A.id,
+       name: TEST_CATEGORIES.CAT_A.name,
+     });
+     expect(result[1]).toEqual({
+       id: TEST_CATEGORIES.CAT_B.id,
+       name: TEST_CATEGORIES.CAT_B.name,
+     });
+   });
 
-  it("should fall back to mock when Saleor client returns null", async () => {
-    // Arrange
-    vi.mocked(isSaleorConfigured).mockReturnValue(true);
-    vi.mocked(getSaleorClient).mockReturnValue(null);
+   it("should fall back to mock when Saleor client returns null", async () => {
+     // Arrange
+     vi.mocked(isSaleorConfigured).mockReturnValue(true);
+     vi.mocked(getSaleorClient).mockReturnValue(null);
 
-    // Act
-    const result = await fetchCategories();
+     // Act
+     const result = await fetchCategories("restA");
 
-    // Assert
-    expect(result).toHaveLength(2);
-    expect(result[0].id).toBe(TEST_CATEGORIES.CAT_A.id);
-  });
+     // Assert
+     expect(result).toHaveLength(2);
+     expect(result[0].id).toBe(TEST_CATEGORIES.CAT_A.id);
+   });
 
-  it("should fall back to mock when Saleor returns errors", async () => {
-    // Arrange
-    const mockResponse: SaleorResponse<any> = {
-      data: undefined,
-      errors: [{ message: "Permission denied" }],
-    };
+   it("should fall back to mock when Saleor returns errors", async () => {
+     // Arrange
+     const mockResponse: SaleorResponse<any> = {
+       data: undefined,
+       errors: [{ message: "Permission denied" }],
+     };
 
-    vi.mocked(isSaleorConfigured).mockReturnValue(true);
-    vi.mocked(getSaleorClient).mockReturnValue(createMockClient(mockResponse));
+     vi.mocked(isSaleorConfigured).mockReturnValue(true);
+     vi.mocked(getSaleorClient).mockReturnValue(createMockClient(mockResponse));
 
-    // Act
-    const result = await fetchCategories();
+     // Act
+     const result = await fetchCategories("restA");
 
-    // Assert
-    expect(result).toHaveLength(2);
-    expect(result[0].id).toBe(TEST_CATEGORIES.CAT_A.id);
-  });
+     // Assert
+     expect(result).toHaveLength(2);
+     expect(result[0].id).toBe(TEST_CATEGORIES.CAT_A.id);
+   });
 
-  it("should fall back to mock when Saleor throws an exception", async () => {
-    // Arrange
-    const errorClient = {
-      execute: vi.fn().mockRejectedValue(new Error("Connection timeout")),
-    } as unknown as SaleorClient;
+   it("should fall back to mock when Saleor throws an exception", async () => {
+     // Arrange
+     const errorClient = {
+       execute: vi.fn().mockRejectedValue(new Error("Connection timeout")),
+     } as unknown as SaleorClient;
 
-    vi.mocked(isSaleorConfigured).mockReturnValue(true);
-    vi.mocked(getSaleorClient).mockReturnValue(errorClient);
+     vi.mocked(isSaleorConfigured).mockReturnValue(true);
+     vi.mocked(getSaleorClient).mockReturnValue(errorClient);
 
-    // Act
-    const result = await fetchCategories();
+     // Act
+     const result = await fetchCategories("restA");
 
-    // Assert
-    expect(result).toHaveLength(2);
-    expect(result[0].id).toBe(TEST_CATEGORIES.CAT_A.id);
-  });
+     // Assert
+     expect(result).toHaveLength(2);
+     expect(result[0].id).toBe(TEST_CATEGORIES.CAT_A.id);
+   });
 
-  it("should return empty array when Saleor returns empty product types", async () => {
-    // Arrange
-    const mockResponse: SaleorResponse<{
-      productTypes: { edges: { node: any }[] };
-    }> = {
-      data: {
-        productTypes: { edges: [] },
-      },
-    };
+   it("should return empty array when Saleor returns empty product types", async () => {
+     // Arrange
+     const mockResponse: SaleorResponse<{
+       productTypes: { edges: { node: any }[] };
+     }> = {
+       data: {
+         productTypes: { edges: [] },
+       },
+     };
 
-    vi.mocked(isSaleorConfigured).mockReturnValue(true);
-    vi.mocked(getSaleorClient).mockReturnValue(createMockClient(mockResponse));
+     vi.mocked(isSaleorConfigured).mockReturnValue(true);
+     vi.mocked(getSaleorClient).mockReturnValue(createMockClient(mockResponse));
 
-    // Act
-    const result = await fetchCategories();
+     // Act
+     const result = await fetchCategories("restA");
 
-    // Assert
-    expect(result).toEqual([]);
-  });
-});
+     // Assert
+     expect(result).toEqual([]);
+   });
+ });
 
 // ============================================================
 // Test Suite: fetchDishes
 // ============================================================
 
 describe("fetchDishes", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
+   beforeEach(() => {
+     vi.clearAllMocks();
+   });
 
-  it("should return Dish[] from Saleor when Saleor is configured", async () => {
-    // Arrange
-    const mockResponse: SaleorResponse<{
-      products: { edges: { node: (typeof mockSaleorProducts)[0] }[] };
-    }> = {
-      data: {
-        products: {
-          edges: mockSaleorProducts.map((p) => ({ node: p })),
-        },
-      },
-    };
+   it("should return Dish[] from Saleor when Saleor is configured", async () => {
+     // Arrange
+     const mockResponse: SaleorResponse<{
+       products: { edges: { node: (typeof mockSaleorProducts)[0] }[] };
+     }> = {
+       data: {
+         products: {
+           edges: mockSaleorProducts.map((p) => ({ node: p })),
+         },
+       },
+     };
 
-    vi.mocked(isSaleorConfigured).mockReturnValue(true);
-    vi.mocked(getSaleorClient).mockReturnValue(createMockClient(mockResponse));
+     vi.mocked(isSaleorConfigured).mockReturnValue(true);
+     vi.mocked(getSaleorClient).mockReturnValue(createMockClient(mockResponse));
 
-    // Act
-    const result = await fetchDishes();
+     // Act
+     const result = await fetchDishes(undefined, "restA");
 
-    // Assert
-    expect(result).toHaveLength(3);
-    expect(result[0]).toEqual({
-      id: "saleor_dish_1",
-      name: "Saleor Dish 1",
-      description: "Description 1",
-      price: 12.99,
-      currency: "USD",
-      categoryId: "saleor_cat_1",
-      imageUrl: "https://example.com/dish1.jpg",
-      restaurantId: "",
+     // Assert
+     expect(result).toHaveLength(3);
+     expect(result[0]).toEqual({
+       id: "saleor_dish_1",
+       name: "Saleor Dish 1",
+       description: "Description 1",
+       price: 12.99,
+       currency: "USD",
+       categoryId: "saleor_cat_1",
+       imageUrl: "https://example.com/dish1.jpg",
+       restaurantId: "restA",
+     });
+     expect(result[1]).toEqual({
+       id: "saleor_dish_2",
+       name: "Saleor Dish 2",
+       description: "",
+       price: 8.5,
+       currency: "EUR",
+       categoryId: "saleor_cat_1",
+       imageUrl: "",
+       restaurantId: "restA",
+     });
+   });
+
+   it("should filter dishes by categoryId when provided", async () => {
+     // Arrange
+     const mockResponse: SaleorResponse<{
+       products: { edges: { node: (typeof mockSaleorProducts)[0] }[] };
+     }> = {
+       data: {
+         products: {
+           edges: mockSaleorProducts.map((p) => ({ node: p })),
+         },
+       },
+     };
+
+     vi.mocked(isSaleorConfigured).mockReturnValue(true);
+     vi.mocked(getSaleorClient).mockReturnValue(createMockClient(mockResponse));
+
+     // Act
+     const result = await fetchDishes("saleor_cat_1", "restA");
+
+     // Assert
+     expect(result).toHaveLength(2);
+     expect(result.every((d) => d.categoryId === "saleor_cat_1")).toBe(true);
+     expect(result[0].id).toBe("saleor_dish_1");
+     expect(result[1].id).toBe("saleor_dish_2");
+   });
+
+   it("should return empty array when categoryId filter matches nothing", async () => {
+     // Arrange
+     const mockResponse: SaleorResponse<{
+       products: { edges: { node: (typeof mockSaleorProducts)[0] }[] };
+     }> = {
+       data: {
+         products: {
+           edges: mockSaleorProducts.map((p) => ({ node: p })),
+         },
+       },
+     };
+
+     vi.mocked(isSaleorConfigured).mockReturnValue(true);
+     vi.mocked(getSaleorClient).mockReturnValue(createMockClient(mockResponse));
+
+     // Act
+     const result = await fetchDishes("nonexistent_category", "restA");
+
+     // Assert
+     expect(result).toEqual([]);
+   });
+
+   it("should fall back to mock dishes when Saleor is not configured", async () => {
+     // Arrange
+     vi.mocked(isSaleorConfigured).mockReturnValue(false);
+
+     // Act
+     const result = await fetchDishes(undefined, "restA");
+
+     // Assert
+     expect(result).toHaveLength(3);
+     expect(result[0]).toEqual({
+       id: TEST_DISHES.DISH_A1.id,
+       name: TEST_DISHES.DISH_A1.name,
+       description: "Test description",
+       price: TEST_DISHES.DISH_A1.price,
+       currency: "USD",
+       categoryId: TEST_DISHES.DISH_A1.categoryId,
+       imageUrl: "https://example.com/image.jpg",
+       restaurantId: "restA",
+     });
+   });
+
+   it("should filter mock dishes by categoryId when provided", async () => {
+     // Arrange
+     vi.mocked(isSaleorConfigured).mockReturnValue(false);
+
+     // Act
+     const result = await fetchDishes("catA", "restA");
+
+     // Assert
+     expect(result).toHaveLength(2);
+     expect(result.every((d) => d.categoryId === "catA")).toBe(true);
+     expect(result[0].id).toBe(TEST_DISHES.DISH_A1.id);
+     expect(result[1].id).toBe(TEST_DISHES.DISH_A2.id);
+   });
+
+    it("should filter mock dishes by restaurantId when provided", async () => {
+      // Arrange
+      vi.mocked(isSaleorConfigured).mockReturnValue(false);
+
+      // Act
+      const result = await fetchDishes(undefined, "restB");
+
+      // Assert
+      expect(result).toHaveLength(3); // All mock dishes, but with restaurantId set to "restB"
+      expect(result.every((d) => d.restaurantId === "restB")).toBe(true);
     });
-    expect(result[1]).toEqual({
-      id: "saleor_dish_2",
-      name: "Saleor Dish 2",
-      description: "",
-      price: 8.5,
-      currency: "EUR",
-      categoryId: "saleor_cat_1",
-      imageUrl: "",
-      restaurantId: "",
-    });
-  });
 
-  it("should filter dishes by categoryId when provided", async () => {
-    // Arrange
-    const mockResponse: SaleorResponse<{
-      products: { edges: { node: (typeof mockSaleorProducts)[0] }[] };
-    }> = {
-      data: {
-        products: {
-          edges: mockSaleorProducts.map((p) => ({ node: p })),
-        },
-      },
-    };
+   it("should filter mock dishes by both categoryId and restaurantId when provided", async () => {
+     // Arrange
+     vi.mocked(isSaleorConfigured).mockReturnValue(false);
 
-    vi.mocked(isSaleorConfigured).mockReturnValue(true);
-    vi.mocked(getSaleorClient).mockReturnValue(createMockClient(mockResponse));
+     // Act
+     const result = await fetchDishes("catA", "restA");
 
-    // Act
-    const result = await fetchDishes("saleor_cat_1");
+     // Assert
+     expect(result).toHaveLength(2);
+     expect(result.every((d) => d.categoryId === "catA" && d.restaurantId === "restA")).toBe(true);
+     expect(result[0].id).toBe(TEST_DISHES.DISH_A1.id);
+     expect(result[1].id).toBe(TEST_DISHES.DISH_A2.id);
+   });
 
-    // Assert
-    expect(result).toHaveLength(2);
-    expect(result.every((d) => d.categoryId === "saleor_cat_1")).toBe(true);
-    expect(result[0].id).toBe("saleor_dish_1");
-    expect(result[1].id).toBe("saleor_dish_2");
-  });
+   it("should fall back to mock when Saleor client returns null", async () => {
+     // Arrange
+     vi.mocked(isSaleorConfigured).mockReturnValue(true);
+     vi.mocked(getSaleorClient).mockReturnValue(null);
 
-  it("should return empty array when categoryId filter matches nothing", async () => {
-    // Arrange
-    const mockResponse: SaleorResponse<{
-      products: { edges: { node: (typeof mockSaleorProducts)[0] }[] };
-    }> = {
-      data: {
-        products: {
-          edges: mockSaleorProducts.map((p) => ({ node: p })),
-        },
-      },
-    };
+     // Act
+     const result = await fetchDishes(undefined, "restA");
 
-    vi.mocked(isSaleorConfigured).mockReturnValue(true);
-    vi.mocked(getSaleorClient).mockReturnValue(createMockClient(mockResponse));
+     // Assert
+     expect(result).toHaveLength(3);
+     expect(result[0].id).toBe(TEST_DISHES.DISH_A1.id);
+   });
 
-    // Act
-    const result = await fetchDishes("nonexistent_category");
+   it("should fall back to mock when Saleor returns errors", async () => {
+     // Arrange
+     const mockResponse: SaleorResponse<any> = {
+       data: undefined,
+       errors: [{ message: "Invalid query" }],
+     };
 
-    // Assert
-    expect(result).toEqual([]);
-  });
+     vi.mocked(isSaleorConfigured).mockReturnValue(true);
+     vi.mocked(getSaleorClient).mockReturnValue(createMockClient(mockResponse));
 
-  it("should fall back to mock dishes when Saleor is not configured", async () => {
-    // Arrange
-    vi.mocked(isSaleorConfigured).mockReturnValue(false);
+     // Act
+     const result = await fetchDishes(undefined, "restA");
 
-    // Act
-    const result = await fetchDishes();
+     // Assert
+     expect(result).toHaveLength(3);
+     expect(result[0].id).toBe(TEST_DISHES.DISH_A1.id);
+   });
 
-    // Assert
-    expect(result).toHaveLength(3);
-    expect(result[0]).toEqual({
-      id: TEST_DISHES.DISH_A1.id,
-      name: TEST_DISHES.DISH_A1.name,
-      description: "Test description",
-      price: TEST_DISHES.DISH_A1.price,
-      currency: "USD",
-      categoryId: TEST_DISHES.DISH_A1.categoryId,
-      imageUrl: "https://example.com/image.jpg",
-      restaurantId: "restA",
-    });
-  });
+   it("should fall back to mock when Saleor throws an exception", async () => {
+     // Arrange
+     const errorClient = {
+       execute: vi.fn().mockRejectedValue(new Error("Server error")),
+     } as unknown as SaleorClient;
 
-  it("should filter mock dishes by categoryId when provided", async () => {
-    // Arrange
-    vi.mocked(isSaleorConfigured).mockReturnValue(false);
+     vi.mocked(isSaleorConfigured).mockReturnValue(true);
+     vi.mocked(getSaleorClient).mockReturnValue(errorClient);
 
-    // Act
-    const result = await fetchDishes("catA");
+     // Act
+     const result = await fetchDishes(undefined, "restA");
 
-    // Assert
-    expect(result).toHaveLength(2);
-    expect(result.every((d) => d.categoryId === "catA")).toBe(true);
-    expect(result[0].id).toBe(TEST_DISHES.DISH_A1.id);
-    expect(result[1].id).toBe(TEST_DISHES.DISH_A2.id);
-  });
+     // Assert
+     expect(result).toHaveLength(3);
+     expect(result[0].id).toBe(TEST_DISHES.DISH_A1.id);
+   });
 
-  it("should fall back to mock when Saleor client returns null", async () => {
-    // Arrange
-    vi.mocked(isSaleorConfigured).mockReturnValue(true);
-    vi.mocked(getSaleorClient).mockReturnValue(null);
+   it("should handle products with no variants", async () => {
+     // Arrange
+     const productsWithNoVariants = [
+       {
+         id: "dish_no_variant",
+         name: "No Variant Dish",
+         description: "Test",
+         thumbnail: null,
+         productType: { id: "cat1", name: "Cat 1" },
+         variants: [],
+       },
+     ];
 
-    // Act
-    const result = await fetchDishes();
+     const mockResponse: SaleorResponse<{
+       products: { edges: { node: any }[] };
+     }> = {
+       data: {
+         products: {
+           edges: productsWithNoVariants.map((p) => ({ node: p })),
+         },
+       },
+     };
 
-    // Assert
-    expect(result).toHaveLength(3);
-    expect(result[0].id).toBe(TEST_DISHES.DISH_A1.id);
-  });
+     vi.mocked(isSaleorConfigured).mockReturnValue(true);
+     vi.mocked(getSaleorClient).mockReturnValue(createMockClient(mockResponse));
 
-  it("should fall back to mock when Saleor returns errors", async () => {
-    // Arrange
-    const mockResponse: SaleorResponse<any> = {
-      data: undefined,
-      errors: [{ message: "Invalid query" }],
-    };
+     // Act
+     const result = await fetchDishes(undefined, "restA");
 
-    vi.mocked(isSaleorConfigured).mockReturnValue(true);
-    vi.mocked(getSaleorClient).mockReturnValue(createMockClient(mockResponse));
+     // Assert
+     expect(result).toHaveLength(1);
+     expect(result[0].price).toBe(0);
+     expect(result[0].currency).toBe("USD");
+   });
 
-    // Act
-    const result = await fetchDishes();
+   it("should handle products with null description", async () => {
+     // Arrange
+     const productsWithNullDesc = [
+       {
+         id: "dish_null_desc",
+         name: "Null Desc Dish",
+         description: null,
+         thumbnail: null,
+         productType: { id: "cat1", name: "Cat 1" },
+         variants: [
+           {
+             id: "var1",
+             name: "Var 1",
+             pricing: { price: { amount: "10.00", currency: "USD" } },
+           },
+         ],
+       },
+     ];
 
-    // Assert
-    expect(result).toHaveLength(3);
-    expect(result[0].id).toBe(TEST_DISHES.DISH_A1.id);
-  });
+     const mockResponse: SaleorResponse<{
+       products: { edges: { node: any }[] };
+     }> = {
+       data: {
+         products: {
+           edges: productsWithNullDesc.map((p) => ({ node: p })),
+         },
+       },
+     };
 
-  it("should fall back to mock when Saleor throws an exception", async () => {
-    // Arrange
-    const errorClient = {
-      execute: vi.fn().mockRejectedValue(new Error("Server error")),
-    } as unknown as SaleorClient;
+     vi.mocked(isSaleorConfigured).mockReturnValue(true);
+     vi.mocked(getSaleorClient).mockReturnValue(createMockClient(mockResponse));
 
-    vi.mocked(isSaleorConfigured).mockReturnValue(true);
-    vi.mocked(getSaleorClient).mockReturnValue(errorClient);
+     // Act
+     const result = await fetchDishes(undefined, "restA");
 
-    // Act
-    const result = await fetchDishes();
-
-    // Assert
-    expect(result).toHaveLength(3);
-    expect(result[0].id).toBe(TEST_DISHES.DISH_A1.id);
-  });
-
-  it("should handle products with no variants", async () => {
-    // Arrange
-    const productsWithNoVariants = [
-      {
-        id: "dish_no_variant",
-        name: "No Variant Dish",
-        description: "Test",
-        thumbnail: null,
-        productType: { id: "cat1", name: "Cat 1" },
-        variants: [],
-      },
-    ];
-
-    const mockResponse: SaleorResponse<{
-      products: { edges: { node: any }[] };
-    }> = {
-      data: {
-        products: {
-          edges: productsWithNoVariants.map((p) => ({ node: p })),
-        },
-      },
-    };
-
-    vi.mocked(isSaleorConfigured).mockReturnValue(true);
-    vi.mocked(getSaleorClient).mockReturnValue(createMockClient(mockResponse));
-
-    // Act
-    const result = await fetchDishes();
-
-    // Assert
-    expect(result).toHaveLength(1);
-    expect(result[0].price).toBe(0);
-    expect(result[0].currency).toBe("USD");
-  });
-
-  it("should handle products with null description", async () => {
-    // Arrange
-    const productsWithNullDesc = [
-      {
-        id: "dish_null_desc",
-        name: "Null Desc Dish",
-        description: null,
-        thumbnail: null,
-        productType: { id: "cat1", name: "Cat 1" },
-        variants: [
-          {
-            id: "var1",
-            name: "Var 1",
-            pricing: { price: { amount: "10.00", currency: "USD" } },
-          },
-        ],
-      },
-    ];
-
-    const mockResponse: SaleorResponse<{
-      products: { edges: { node: any }[] };
-    }> = {
-      data: {
-        products: {
-          edges: productsWithNullDesc.map((p) => ({ node: p })),
-        },
-      },
-    };
-
-    vi.mocked(isSaleorConfigured).mockReturnValue(true);
-    vi.mocked(getSaleorClient).mockReturnValue(createMockClient(mockResponse));
-
-    // Act
-    const result = await fetchDishes();
-
-    // Assert
-    expect(result).toHaveLength(1);
-    expect(result[0].description).toBe("");
-  });
-});
+     // Assert
+     expect(result).toHaveLength(1);
+     expect(result[0].description).toBe("");
+   });
+ });
 
 // ============================================================
 // Test Suite: Error Handling Edge Cases
@@ -642,49 +668,48 @@ describe("Error handling edge cases", () => {
     vi.clearAllMocks();
   });
 
-  it("should handle undefined data from Saleor response", async () => {
-    // Arrange
-    const mockResponse: SaleorResponse<any> = {
-      data: undefined,
-      errors: undefined,
-    };
+   it("should fall back to mock data when Saleor returns undefined data", async () => {
+     // Arrange
+     const mockResponse: SaleorResponse<any> = {
+       data: undefined,
+       errors: undefined,
+     };
 
-    vi.mocked(isSaleorConfigured).mockReturnValue(true);
-    vi.mocked(getSaleorClient).mockReturnValue(createMockClient(mockResponse));
+     vi.mocked(isSaleorConfigured).mockReturnValue(true);
+     vi.mocked(getSaleorClient).mockReturnValue(createMockClient(mockResponse));
 
-    // Act - test all three functions
-    const [restaurants, categories, dishes] = await Promise.all([
-      fetchRestaurants(),
-      fetchCategories(),
-      fetchDishes(),
-    ]);
+     // Act - test all three functions
+     const [restaurants, categories, dishes] = await Promise.all([
+       fetchRestaurants(),
+       fetchCategories(),
+       fetchDishes(),
+     ]);
 
-    // Assert - Note: Current implementation returns empty array for undefined data
-    // BUG: Should fall back to mock data when data is undefined/unparseable
-    expect(Array.isArray(restaurants)).toBe(true);
-    expect(Array.isArray(categories)).toBe(true);
-    expect(Array.isArray(dishes)).toBe(true);
-  });
+     // Assert - Should fall back to mock data when data is undefined
+     expect(restaurants).toHaveLength(2);
+     expect(categories).toHaveLength(2);
+     expect(dishes).toHaveLength(3);
+   });
 
-  it("should handle malformed response structure", async () => {
-    // Arrange
-    const mockResponse: SaleorResponse<any> = {
-      data: {
-        // Missing expected structure
-        collections: null,
-      },
-    };
+   it("should fall back to mock data when Saleor returns malformed response structure", async () => {
+     // Arrange
+     const mockResponse: SaleorResponse<any> = {
+       data: {
+         // Missing expected structure
+         collections: null,
+       },
+     };
 
-    vi.mocked(isSaleorConfigured).mockReturnValue(true);
-    vi.mocked(getSaleorClient).mockReturnValue(createMockClient(mockResponse));
+     vi.mocked(isSaleorConfigured).mockReturnValue(true);
+     vi.mocked(getSaleorClient).mockReturnValue(createMockClient(mockResponse));
 
-    // Act
-    const result = await fetchRestaurants();
+     // Act
+     const result = await fetchRestaurants();
 
-    // Assert - Note: Current implementation returns empty array for malformed data
-    // BUG: Should fall back to mock data when structure is invalid
-    expect(Array.isArray(result)).toBe(true);
-  });
+     // Assert - Should fall back to mock data when structure is invalid
+     expect(result).toHaveLength(2);
+     expect(result[0].id).toBe(TEST_RESTAURANTS.REST_A.id);
+   });
 
   it("should handle products with multiple variants using first one for price", async () => {
     // Arrange

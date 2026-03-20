@@ -10,7 +10,11 @@
 import { createServer } from "http";
 
 // Dynamically import the bundled worker
-const { handleRequest } = await import("../dist/bundled.js");
+const bundledWorker = await import("../dist/bundled.js");
+console.log('bundledWorker:', bundledWorker);
+console.log('bundledWorker.handleRequest:', bundledWorker.handleRequest);
+console.log('typeof bundledWorker.handleRequest:', typeof bundledWorker.handleRequest);
+const { handleRequest } = bundledWorker;
 
 const PORT = process.env.PORT || 8787;
 

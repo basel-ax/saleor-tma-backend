@@ -243,8 +243,8 @@ export const QUERY_RESTAURANT_CATEGORIES = `
  * Category dishes query
  */
 export const QUERY_CATEGORY_DISHES = `
-  query CategoryDishes($categoryId: ID!) {
-    categoryDishes(categoryId: $categoryId) {
+  query CategoryDishes($categoryId: ID!, $restaurantId: ID!) {
+    categoryDishes(categoryId: $categoryId, restaurantId: $restaurantId) {
       id
       name
       description

@@ -121,9 +121,9 @@ type Query {
   # AuthContext: userId, name, language available in resolver
   restaurantCategories(restaurantId: ID!): [Category!]!
   
-  # Returns dishes for a category
-  # AuthContext: userId, name, language available in resolver
-  categoryDishes(categoryId: ID!): [Dish!]!
+   # Returns dishes for a category
+   # AuthContext: userId, name, language available in resolver
+   categoryDishes(categoryId: ID!, restaurantId: ID!): [Dish!]!
   
   # Phase 3: Returns current user's cart
   # AuthContext: userId required to identify cart

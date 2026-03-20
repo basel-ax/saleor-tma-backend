@@ -61,43 +61,45 @@ const queryResolvers = {
     return await fetchRestaurants();
   },
 
-  /**
-   * Get categories for a restaurant
-   */
-  restaurantCategories: async (
-    _: any,
-    args: { restaurantId: string },
-    context: GraphQLContext,
-  ): Promise<Category[]> => {
-    const auth = requireRead(context.auth);
-    if (!auth.valid) {
-      logger.authFailure("permission_denied", context.auth.userId);
-      throw forbiddenError();
-    }
-    console.log(
-      `[Resolver] restaurantCategories for ${args.restaurantId}, user ${context.auth.userId}`,
-    );
-    return await fetchCategories();
-  },
+   /**
+    * Get categories for a restaurant
+    */
+    restaurantCategories: async (
+      _: any,
+      args: { restaurantId: string },
+      context: GraphQLContext,
+    ): Promise<Category[]> => {
+      const auth = requireRead(context.auth);
+      if (!auth.valid) {
+        logger.authFailure("permission_denied", context.auth.userId);
+        throw forbiddenError();
+      }
+      const { restaurantId } = args;
+      console.log(
+        `[Resolver] restaurantCategories for ${restaurantId}, user ${context.auth.userId}`,
+      );
+      return await fetchCategories(restaurantId);
+    },
 
-  /**
-   * Get dishes for a category
-   */
-  categoryDishes: async (
-    _: any,
-    args: { categoryId: string },
-    context: GraphQLContext,
-  ): Promise<Dish[]> => {
-    const auth = requireRead(context.auth);
-    if (!auth.valid) {
-      logger.authFailure("permission_denied", context.auth.userId);
-      throw forbiddenError();
-    }
-    console.log(
-      `[Resolver] categoryDishes for ${args.categoryId}, user ${context.auth.userId}`,
-    );
-    return await fetchDishes(args.categoryId);
-  },
+    /**
+     * Get dishes for a category
+     */
+    categoryDishes: async (
+      _: any,
+      args: { categoryId: string; restaurantId: string },
+      context: GraphQLContext,
+    ): Promise<Dish[]> => {
+      const auth = requireRead(context.auth);
+      if (!auth.valid) {
+        logger.authFailure("permission_denied", context.auth.userId);
+        throw forbiddenError();
+      }
+      const { categoryId, restaurantId } = args;
+      console.log(
+        `[Resolver] categoryDishes for ${categoryId}, restaurant ${restaurantId}, user ${context.auth.userId}`,
+      );
+      return await fetchDishes(categoryId, restaurantId);
+    },
 
   // ============================================================
   // Phase 3: Cart Query Resolvers

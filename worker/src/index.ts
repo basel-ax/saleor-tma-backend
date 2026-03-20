@@ -17,20 +17,7 @@ import {
   Dish,
 } from "./contracts";
 import { extractAuthContext } from "./auth";
-import {
-  getCartSync,
-  addToCartSync,
-  updateCartItemSync,
-  removeFromCartSync,
-  clearCartSync,
-  getCartTotalSync,
-  getCartItemCountSync,
-} from "./cart";
-import {
-  fetchRestaurants,
-  fetchCategories,
-  fetchDishes,
-} from "./saleorService";
+import { resolvers } from "./resolvers";
 
 // CORS headers for preflight and actual requests
 // Allow any localhost port during development (5173, 5174, etc.)
@@ -40,11 +27,6 @@ const CORS_HEADERS = {
     "Content-Type, X-Telegram-Init-Data, Telegram-Init-Data",
   "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
 };
-
-// Type for resolver arguments including context
-export interface ResolverContext {
-  context: GraphQLContext;
-}
 
 // In-memory cart keyed by authenticated userId (Phase 3 will use persistent storage)
 const carts: Record<
@@ -60,197 +42,6 @@ const carts: Record<
     }[];
   }
 > = {};
-
-/**
- * Creates GraphQL context from request
- * Validates X-Telegram-Init-Data header per specs/05-telegram-auth.md
- */
-function createContext(request: Request): GraphQLContext {
-  const auth = extractAuthContext(request);
-  return { auth };
-}
-
-/**
- * Error response helpers
- */
-function errorResponse(error: AppError, requestId?: string): Response {
-  // Log internal error ID for debugging
-  if (error.internalId) {
-    logger.error("request_error", {
-      errorCode: error.code,
-      internalId: error.internalId,
-      requestId,
-    });
-  }
-
-  return new Response(JSON.stringify({ errors: [error.toGraphQL()] }), {
-    status: error.statusCode,
-    headers: {
-      "Content-Type": "application/json",
-      "X-Request-Id": requestId || "",
-      ...CORS_HEADERS,
-    },
-  });
-}
-
-function jsonResponse(obj: any): Response {
-  return new Response(JSON.stringify(obj), {
-    status: 200,
-    headers: {
-      "Content-Type": "application/json",
-      ...CORS_HEADERS,
-    },
-  });
-}
-
-/**
- * Main request handler with auth integration
- */
-async function handleRequest(request: Request): Promise<Response> {
-  // Handle CORS preflight requests - MUST be before auth checks
-  if (request.method === "OPTIONS") {
-    return new Response(null, {
-      status: 200,
-      headers: CORS_HEADERS,
-    });
-  }
-
-  // Phase 2: Auth context extraction
-  const context = createContext(request);
-
-  // Return 401 if auth is invalid (per specs/05-telegram-auth.md)
-  if (!context.auth.valid) {
-    const requestId = crypto.randomUUID();
-    logger.authFailure(context.auth.errorCode || "unknown", requestId);
-    // Show actual error reason instead of generic message
-    const errorMessage =
-      context.auth.errorCode === "EXPIRED"
-        ? "X-Telegram-Init-Data has expired"
-        : "Missing X-Telegram-Init-Data";
-    return errorResponse(unauthorizedError(errorMessage), requestId);
-  }
-
-  // Log authenticated user (avoid logging sensitive data in production)
-  logger.authSuccess(context.auth.userId);
-
-  // Parse GraphQL request body
-  let body: any = {};
-  if (request.method === "POST") {
-    try {
-      body = await request.json();
-    } catch {
-      body = {};
-    }
-  }
-
-  const query: string = body?.query ?? "";
-  const variables = body?.variables ?? {};
-
-  // GraphQL resolver routing with auth context
-  try {
-    const result = await resolveGraphQL(query, variables, context);
-    return jsonResponse({ data: result });
-  } catch (error) {
-    const requestId = crypto.randomUUID();
-
-    if (error instanceof AppError) {
-      return errorResponse(error, requestId);
-    }
-
-    logger.error("unhandled_error", {
-      error: error instanceof Error ? error.message : "Unknown",
-    });
-    const internalErr = internalError(requestId);
-    return errorResponse(internalErr, requestId);
-  }
-}
-
-/**
- * GraphQL resolver dispatcher - routes queries/mutations to handlers
- * Receives GraphQLContext with authenticated user info
- */
-async function resolveGraphQL(
-  query: string,
-  variables: any,
-  context: GraphQLContext,
-): Promise<any> {
-  // Query resolvers
-  if (query.includes("restaurants(") || query.includes("restaurants")) {
-    return { restaurants: await resolveRestaurants(context) };
-  }
-
-  if (query.includes("restaurantCategories")) {
-    const restaurantId = variables?.restaurantId || "restA"; // Default to test restaurant ID
-    return {
-      restaurantCategories: await resolveCategories(restaurantId, context),
-    };
-  }
-
-  if (query.includes("categoryDishes")) {
-    const restaurantId = variables?.restaurantId || "restA"; // Default to test restaurant ID
-    const categoryId = variables?.categoryId || "catA"; // Default to test category ID
-    return {
-      categoryDishes: await resolveDishes(restaurantId, categoryId, context),
-    };
-  }
-
-  // Mutation resolvers
-  if (query.includes("placeOrder")) {
-    const input =
-      variables?.input ||
-      ({
-        restaurantId: "restA", // Default to test restaurant ID
-        deliveryLocation: {
-          address: "123 Test Street",
-          city: "Test City",
-          country: "US",
-          latitude: 40.7128,
-          longitude: -74.006,
-        },
-        items: [],
-      } as PlaceOrderInputType);
-    return { placeOrder: resolvePlaceOrder(input, context) };
-  }
-
-  // Phase 3: Cart Query Resolvers
-  if (query.includes("cart(") || query.includes("cart")) {
-    if (
-      !query.includes("addToCart") &&
-      !query.includes("updateCartItem") &&
-      !query.includes("removeCartItem") &&
-      !query.includes("clearCart")
-    ) {
-      return { cart: resolveCart(context) };
-    }
-  }
-
-  // Phase 3: Cart Mutation Resolvers
-  if (query.includes("addToCart")) {
-    const input = variables?.input || {
-      dishId: "",
-      quantity: 1,
-      restaurantId: "",
-    };
-    return { addToCart: resolveAddToCart(input, context) };
-  }
-
-  if (query.includes("updateCartItem")) {
-    const input = variables?.input || { dishId: "", quantity: 1 };
-    return { updateCartItem: resolveUpdateCartItem(input, context) };
-  }
-
-  if (query.includes("removeCartItem")) {
-    const dishId = variables?.dishId || "";
-    return { removeCartItem: resolveRemoveCartItem(dishId, context) };
-  }
-
-  if (query.includes("clearCart")) {
-    return { clearCart: resolveClearCart(context) };
-  }
-
-  // Unknown operation
-  return {};
-}
 
 // Resolver implementations receive GraphQLContext
 async function resolveRestaurants(
@@ -448,7 +239,205 @@ function resolveClearCart(context: GraphQLContext): {
   };
 }
 
-// Register the fetch event listener
-addEventListener('fetch', (event) => {
-  event.respondWith(handleRequest(event.request))
-})
+// Register the fetch event listener only in Cloudflare Workers environment
+if (typeof addEventListener === 'function') {
+  addEventListener('fetch', (event: any) => {
+    event.respondWith(handleRequest(event.request))
+  })
+}
+
+/**
+ * Creates GraphQL context from request
+ * Validates X-Telegram-Init-Data header per specs/05-telegram-auth.md
+ */
+function createContext(request: Request): GraphQLContext {
+  const auth = extractAuthContext(request);
+  return { auth };
+}
+
+/**
+ * Error response helpers
+ */
+function errorResponse(error: AppError, requestId?: string): Response {
+  // Log internal error ID for debugging
+  if (error.internalId) {
+    logger.error("request_error", {
+      errorCode: error.code,
+      internalId: error.internalId,
+      requestId,
+    });
+  }
+
+  return new Response(JSON.stringify({ errors: [error.toGraphQL()] }), {
+    status: error.statusCode,
+    headers: {
+      "Content-Type": "application/json",
+      "X-Request-Id": requestId || "",
+      ...CORS_HEADERS,
+    },
+  });
+}
+
+function jsonResponse(obj: any): Response {
+  return new Response(JSON.stringify(obj), {
+    status: 200,
+    headers: {
+      "Content-Type": "application/json",
+      ...CORS_HEADERS,
+    },
+  });
+}
+
+/**
+ * Main request handler with auth integration
+ */
+export async function handleRequest(request: Request): Promise<Response> {
+  // Handle CORS preflight requests - MUST be before auth checks
+  if (request.method === "OPTIONS") {
+    return new Response(null, {
+      status: 200,
+      headers: CORS_HEADERS,
+    });
+  }
+
+  // Phase 2: Auth context extraction
+  const context = createContext(request);
+
+  // Return 401 if auth is invalid (per specs/05-telegram-auth.md)
+  if (!context.auth.valid) {
+    const requestId = crypto.randomUUID();
+    logger.authFailure(context.auth.errorCode || "unknown", requestId);
+    // Show actual error reason instead of generic message
+    const errorMessage =
+      context.auth.errorCode === "EXPIRED"
+        ? "X-Telegram-Init-Data has expired"
+        : "Missing X-Telegram-Init-Data";
+    return errorResponse(unauthorizedError(errorMessage), requestId);
+  }
+
+  // Log authenticated user (avoid logging sensitive data in production)
+  logger.authSuccess(context.auth.userId);
+
+  // Parse GraphQL request body
+  let body: any = {};
+  if (request.method === "POST") {
+    try {
+      body = await request.json();
+    } catch {
+      body = {};
+    }
+  }
+
+  const query: string = body?.query ?? "";
+  const variables = body?.variables ?? {};
+
+  // GraphQL resolver routing with auth context
+  try {
+    const result = await resolveGraphQL(query, variables, context);
+    return jsonResponse({ data: result });
+  } catch (error) {
+    const requestId = crypto.randomUUID();
+
+    if (error instanceof AppError) {
+      return errorResponse(error, requestId);
+    }
+
+    logger.error("unhandled_error", {
+      error: error instanceof Error ? error.message : "Unknown",
+    });
+    const internalErr = internalError(requestId);
+    return errorResponse(internalErr, requestId);
+  }
+}
+
+/**
+ * GraphQL resolver dispatcher - routes queries/mutations to handlers
+ * Receives GraphQLContext with authenticated user info
+ */
+async function resolveGraphQL(
+  query: string,
+  variables: any,
+  context: GraphQLContext,
+): Promise<any> {
+  // Query resolvers
+  if (query.includes("restaurants(") || query.includes("restaurants")) {
+    const result = await resolvers.Query.restaurants(null, {}, context);
+    return { restaurants: result };
+  }
+
+  if (query.includes("restaurantCategories")) {
+    const restaurantId = variables?.restaurantId || "restA"; // Default to test restaurant ID
+    const result = await resolvers.Query.restaurantCategories(null, { restaurantId }, context);
+    return { restaurantCategories: result };
+  }
+
+  if (query.includes("categoryDishes")) {
+    const restaurantId = variables?.restaurantId || "restA"; // Default to test restaurant ID
+    const categoryId = variables?.categoryId || "catA"; // Default to test category ID
+    const result = await resolvers.Query.categoryDishes(null, { categoryId, restaurantId }, context);
+    return { categoryDishes: result };
+  }
+
+  // Mutation resolvers
+  if (query.includes("placeOrder")) {
+    const input =
+      variables?.input ||
+      ({
+        restaurantId: "restA", // Default to test restaurant ID
+        deliveryLocation: {
+          address: "123 Test Street",
+          city: "Test City",
+          country: "US",
+          latitude: 40.7128,
+          longitude: -74.006,
+        },
+        items: [],
+      } as PlaceOrderInputType);
+    const result = await resolvers.Mutation.placeOrder(null, { input }, context);
+    return { placeOrder: result };
+  }
+
+  // Phase 3: Cart Query Resolvers
+  if (query.includes("cart(") || query.includes("cart")) {
+    if (
+      !query.includes("addToCart") &&
+      !query.includes("updateCartItem") &&
+      !query.includes("removeCartItem") &&
+      !query.includes("clearCart")
+    ) {
+      const result = await resolvers.Query.cart(null, {}, context);
+      return { cart: result };
+    }
+  }
+
+  // Phase 3: Cart Mutation Resolvers
+  if (query.includes("addToCart")) {
+    const input = variables?.input || {
+      dishId: "",
+      quantity: 1,
+      restaurantId: "",
+    };
+    const result = await resolvers.Mutation.addToCart(null, { input }, context);
+    return { addToCart: result };
+  }
+
+  if (query.includes("updateCartItem")) {
+    const input = variables?.input || { dishId: "", quantity: 1 };
+    const result = await resolvers.Mutation.updateCartItem(null, { input }, context);
+    return { updateCartItem: result };
+  }
+
+  if (query.includes("removeCartItem")) {
+    const dishId = variables?.dishId || "";
+    const result = await resolvers.Mutation.removeCartItem(null, { dishId: dishId }, context);
+    return { removeCartItem: result };
+  }
+
+  if (query.includes("clearCart")) {
+    const result = await resolvers.Mutation.clearCart(null, {}, context);
+    return { clearCart: result };
+  }
+
+  // Unknown operation
+  return {};
+}

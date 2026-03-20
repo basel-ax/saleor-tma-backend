@@ -7,12 +7,12 @@
     {
       "id": 1,
       "name": "Saleor Data Service",
-      "status": "in_progress",
+      "status": "pending",
       "tasks": [
         {
           "id": "1.1",
           "phase": 1,
-          "status": "in_progress",
+          "status": "completed",
           "size": "medium",
           "description": "Create Saleor data service with product/category queries",
           "depends": [],
