@@ -144,10 +144,12 @@ export function validateInitData(header: string | null): AuthContext {
     const userJson = params.get("user");
     let name: string | undefined;
     let language: string | undefined;
+    let userId: string = "";
 
     if (userJson) {
       try {
         const user = JSON.parse(userJson);
+        userId = user.id || "";
         name = user.first_name
           ? user.last_name
             ? `${user.first_name} ${user.last_name}`
@@ -159,7 +161,10 @@ export function validateInitData(header: string | null): AuthContext {
       }
     }
 
-    const userId = params.get("id") || params.get("user_id") || "";
+    // Fallback to direct id parameters if not found in user object
+    if (!userId) {
+      userId = params.get("id") || params.get("user_id") || "";
+    }
 
     logger.authSuccess(userId);
 

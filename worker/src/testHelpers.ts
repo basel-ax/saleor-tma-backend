@@ -16,8 +16,20 @@ import {
 // ============================================================
 
 export const TEST_RESTAURANTS = {
-  REST_A: { id: "restA", name: "Pizza Place" },
-  REST_B: { id: "restB", name: "Sushi House" },
+  REST_A: {
+    id: "restA",
+    name: "Pizza Place",
+    description: "Test description",
+    imageUrl: "https://example.com/image.jpg",
+    tags: ["test"],
+  },
+  REST_B: {
+    id: "restB",
+    name: "Sushi House",
+    description: "Japanese cuisine",
+    imageUrl: "https://example.com/sushi.jpg",
+    tags: ["japanese", "sushi"],
+  },
 };
 
 export const TEST_DISHES = {

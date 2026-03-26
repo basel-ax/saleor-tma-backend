@@ -43,6 +43,9 @@ SPEC_KIT_BASE_URL=http://localhost:8787 npm test
 
 # Watch mode for development
 npm run test:watch
+
+# Run tests with debug mode (enables verbose Saleor request/response logging)
+npm run test:debug
 ```
 
 ### Option 2: Manual Testing with curl
@@ -102,6 +105,44 @@ auth_date=1700000000&hash=test_hash&user={"id":"123456789","first_name":"Test","
 - `dish2`: Pepperoni ($11.00)
 - `dish3`: Salmon Nigiri ($2.50)
 
+## Debug Mode
+
+Debug mode provides verbose logging for Saleor API requests and responses, useful for troubleshooting integration issues.
+
+### Enabling Debug Mode
+
+```bash
+# Via npm script (sets DEBUG_MODE=true)
+npm run test:debug
+
+# Or manually
+DEBUG_MODE=true npm test
+```
+
+### Debug Output
+
+When debug mode is enabled, the following information is logged:
+- Saleor API configuration status (URL and token presence)
+- GraphQL queries sent to Saleor
+- Response data received from Saleor
+
+Debug logging is handled by `src/logger.ts` and is only active when `DEBUG_MODE=true`.
+
+## Saleor Integration E2E Tests
+
+The `saleorIntegration.test.ts` file contains end-to-end tests that verify the complete flow from restaurant selection to order placement:
+
+1. Query restaurants and select the first one
+2. Query categories for that restaurant
+3. Query dishes for each category
+4. Add dishes to cart
+5. Place order and verify creation
+
+To run these tests specifically:
+```bash
+npm run test:debug -- saleorIntegration.test.ts
+```
+
 ## Test Cases
 
 ### 1. Query Tests
@@ -153,6 +194,11 @@ jobs:
 
 ## Troubleshooting
 
+### Saleor Integration Issues
+- Run with debug mode: `npm run test:debug` to see Saleor API requests/responses
+- Verify `SALEOR_API_URL` and `SALEOR_TOKEN` are configured in `wrangler.toml`
+- Check that the Saleor API is accessible from your environment
+
 ### Worker not starting
 - Make sure Wrangler is installed: `npm install -g wrangler`
 - Check wrangler.toml configuration
@@ -172,3 +218,5 @@ jobs:
 - [API Contract Specs](../specs/01-api-contract.md)
 - [Autotests Specs](../specs/03-autotests.md)
 - [Implementation Guide](../IMPLEMENTATION.md)
+- [Saleor Client](./src/saleorClient.ts) - Saleor API integration
+- [Logger](./src/logger.ts) - Debug logging utilities

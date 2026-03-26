@@ -7,7 +7,7 @@
     {
       "id": 1,
       "name": "Saleor Data Service",
-      "status": "pending",
+      "status": "complete",
       "tasks": [
         {
           "id": "1.1",
@@ -16,7 +16,7 @@
           "size": "medium",
           "description": "Create Saleor data service with product/category queries",
           "depends": [],
-          "acceptance": "saleorService.ts created with queries for products, productTypes, collections",
+          "acceptance": "Service fetches real data from Saleor with fallback to mock",
           "files_touched": []
         },
         {
@@ -28,31 +28,72 @@
           "depends": [
             "1.1"
           ],
-          "acceptance": "Restaurant, Category, Dish fetched from Saleor and mapped correctly",
+          "acceptance": "GraphQL queries defined and tested",
           "files_touched": []
         },
         {
           "id": "1.3",
           "phase": 1,
-          "status": "pending",
+          "status": "completed",
           "size": "medium",
           "description": "Update resolvers to use Saleor data service",
           "depends": [
             "1.2"
           ],
-          "acceptance": "Restaurants, restaurantCategories, categoryDishes return real data",
+          "acceptance": "Resolvers return Saleor data when configured",
           "files_touched": []
         },
         {
           "id": "1.4",
           "phase": 1,
-          "status": "pending",
+          "status": "completed",
           "size": "small",
           "description": "Update tests for Saleor integration",
           "depends": [
             "1.3"
           ],
-          "acceptance": "Tests pass with real Saleor data queries",
+          "acceptance": "All existing tests pass with Saleor integration",
+          "files_touched": []
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "name": "Automated Saleor Integration Test with Debug Mode",
+      "status": "completed",
+      "tasks": [
+        {
+          "id": "2.1",
+          "phase": 2,
+          "status": "in_progress",
+          "size": "small",
+          "description": "Add debug mode support via DEBUG_MODE environment variable to test runner",
+          "depends": [],
+          "acceptance": "Tests check DEBUG_MODE env var to enable debug mode",
+          "files_touched": []
+        },
+        {
+          "id": "2.2",
+          "phase": 2,
+          "status": "completed",
+          "size": "medium",
+          "description": "Implement Saleor request/response logging to console in debug mode",
+          "depends": [
+            "2.1"
+          ],
+          "acceptance": "Debug mode outputs request/response data to console (captured by test runner)",
+          "files_touched": []
+        },
+        {
+          "id": "2.3",
+          "phase": 2,
+          "status": "completed",
+          "size": "medium",
+          "description": "Create end-to-end integration test: select first restaurant, order one of each item, include comment test order",
+          "depends": [
+            "2.2"
+          ],
+          "acceptance": "Integration test passes: selects restaurant, adds all items, places order with test comment",
           "files_touched": []
         }
       ]

@@ -164,45 +164,54 @@ export async function fetchRestaurants(): Promise<Restaurant[]> {
       return getMockRestaurants();
     }
 
-     const collectionsResponse = response.data?.collections;
-     
-     // Handle malformed response - if collections or edges is not as expected
-     if (!collectionsResponse || !Array.isArray(collectionsResponse.edges)) {
-       logger.error("saleor_service_malformed_response", {
-         error: "Invalid collections response structure",
-         dataType: "restaurants",
-         received: collectionsResponse,
-       });
-       return getMockRestaurants();
-     }
+    const collectionsResponse = response.data?.collections;
 
-     const collections =
-       collectionsResponse.edges
-         .filter((edge): edge is { node: SaleorCollection } => !!edge && !!edge.node)
-         .map((edge) => edge.node) || [];
+    // Handle malformed response - if collections or edges is not as expected
+    if (!collectionsResponse || !Array.isArray(collectionsResponse.edges)) {
+      logger.error("saleor_service_malformed_response", {
+        error: "Invalid collections response structure",
+        dataType: "restaurants",
+        received: collectionsResponse,
+      });
+      return getMockRestaurants();
+    }
 
-     // Map Saleor collections to our Restaurant format
-     // For now, we'll treat each collection as a restaurant with empty categories
-     // Categories and dishes will be fetched separately
-     const restaurants: Restaurant[] = [];
-     
-     for (const collection of collections) {
-       // Skip malformed collection data
-       if (!collection || typeof collection.id !== 'string' || typeof collection.name !== 'string') {
-         logger.warn("saleor_service_skipping_malformed_collection", {
-           collection: collection,
-           dataType: "restaurants",
-         });
-         continue;
-       }
-       
-       restaurants.push({
-         id: collection.id,
-         name: collection.name,
-         categories: [], // Will be populated when fetchCategories is called
-         deliveryLocations: [], // Not available in Saleor collections, leave empty
-       });
-     }
+    const collections =
+      collectionsResponse.edges
+        .filter(
+          (edge): edge is { node: SaleorCollection } => !!edge && !!edge.node,
+        )
+        .map((edge) => edge.node) || [];
+
+    // Map Saleor collections to our Restaurant format
+    // For now, we'll treat each collection as a restaurant with empty categories
+    // Categories and dishes will be fetched separately
+    const restaurants: Restaurant[] = [];
+
+    for (const collection of collections) {
+      // Skip malformed collection data
+      if (
+        !collection ||
+        typeof collection.id !== "string" ||
+        typeof collection.name !== "string"
+      ) {
+        logger.warn("saleor_service_skipping_malformed_collection", {
+          collection: collection,
+          dataType: "restaurants",
+        });
+        continue;
+      }
+
+      restaurants.push({
+        id: collection.id,
+        name: collection.name,
+        description: "", // Not available in Saleor collections
+        imageUrl: collection.backgroundImage?.url || "", // Map backgroundImage.url to imageUrl
+        tags: [], // Not available in Saleor collections
+        categories: [], // Will be populated when fetchCategories is called
+        deliveryLocations: [], // Not available in Saleor collections, leave empty
+      });
+    }
 
     logger.info("saleor_service_success", {
       count: restaurants.length,
@@ -224,7 +233,9 @@ export async function fetchRestaurants(): Promise<Restaurant[]> {
  * The restaurantId parameter is accepted for API consistency but is not used for filtering in this implementation.
  * Falls back to mock data if Saleor is not configured or on error.
  */
-export async function fetchCategories(restaurantId?: string): Promise<Category[]> {
+export async function fetchCategories(
+  restaurantId?: string,
+): Promise<Category[]> {
   // Check if Saleor is configured
   if (!isSaleorConfigured()) {
     logger.info("saleor_service_fallback", {
@@ -258,46 +269,50 @@ export async function fetchCategories(restaurantId?: string): Promise<Category[]
       return getMockCategories();
     }
 
-     const productTypesResponse = response.data?.productTypes;
-     
-     // Handle malformed response - if productTypes or edges is not as expected
-     if (!productTypesResponse || !Array.isArray(productTypesResponse.edges)) {
-       logger.error("saleor_service_malformed_response", {
-         error: "Invalid productTypes response structure",
-         dataType: "categories",
-         received: productTypesResponse,
-       });
-       return getMockCategories();
-     }
+    const productTypesResponse = response.data?.productTypes;
 
-     const productTypes =
-       productTypesResponse.edges
-         .filter((edge): edge is { node: SaleorProductType } => !!edge && !!edge.node)
-         .map((edge) => edge.node) || [];
+    // Handle malformed response - if productTypes or edges is not as expected
+    if (!productTypesResponse || !Array.isArray(productTypesResponse.edges)) {
+      logger.error("saleor_service_malformed_response", {
+        error: "Invalid productTypes response structure",
+        dataType: "categories",
+        received: productTypesResponse,
+      });
+      return getMockCategories();
+    }
 
-     // Map Saleor product types to our Category format
-     const categories: Category[] = [];
-     
-     for (const pt of productTypes) {
-       // Skip malformed product type data
-       if (!pt || typeof pt.id !== 'string' || typeof pt.name !== 'string') {
-         logger.warn("saleor_service_skipping_malformed_product_type", {
-           productType: pt,
-           dataType: "categories",
-         });
-         continue;
-       }
-       
-       categories.push({
-         id: pt.id,
-         name: pt.name,
-       });
-     }
+    const productTypes =
+      productTypesResponse.edges
+        .filter(
+          (edge): edge is { node: SaleorProductType } => !!edge && !!edge.node,
+        )
+        .map((edge) => edge.node) || [];
+
+    // Map Saleor product types to our Category format
+    const categories: Category[] = [];
+
+    for (const pt of productTypes) {
+      // Skip malformed product type data
+      if (!pt || typeof pt.id !== "string" || typeof pt.name !== "string") {
+        logger.warn("saleor_service_skipping_malformed_product_type", {
+          productType: pt,
+          dataType: "categories",
+        });
+        continue;
+      }
+
+      categories.push({
+        id: pt.id,
+        name: pt.name,
+      });
+    }
 
     logger.info("saleor_service_success", {
       count: categories.length,
       dataType: "categories",
-      filter: restaurantId ? `restaurantId=${restaurantId} (ignored, no direct Saleor mapping)` : "none",
+      filter: restaurantId
+        ? `restaurantId=${restaurantId} (ignored, no direct Saleor mapping)`
+        : "none",
     });
     return categories;
   } catch (error) {
@@ -316,7 +331,10 @@ export async function fetchCategories(restaurantId?: string): Promise<Category[]
  * For now, we'll set the restaurantId on the dish objects if provided.
  * Falls back to mock data if Saleor is not configured or on error.
  */
-export async function fetchDishes(categoryId?: string, restaurantId?: string): Promise<Dish[]> {
+export async function fetchDishes(
+  categoryId?: string,
+  restaurantId?: string,
+): Promise<Dish[]> {
   // Check if Saleor is configured
   if (!isSaleorConfigured()) {
     logger.info("saleor_service_fallback", {
@@ -348,74 +366,81 @@ export async function fetchDishes(categoryId?: string, restaurantId?: string): P
       return getMockDishes(categoryId, restaurantId);
     }
 
-     const productsResponse = response.data?.products;
-     
-     // Handle malformed response - if products or edges is not as expected
-     if (!productsResponse || !Array.isArray(productsResponse.edges)) {
-       logger.error("saleor_service_malformed_response", {
-         error: "Invalid products response structure",
-         dataType: "dishes",
-         received: productsResponse,
-       });
-       return getMockDishes(categoryId, restaurantId);
-     }
+    const productsResponse = response.data?.products;
 
-     const products =
-       productsResponse.edges
-         .filter((edge): edge is { node: SaleorProduct } => !!edge && !!edge.node)
-         .map((edge) => edge.node) || [];
+    // Handle malformed response - if products or edges is not as expected
+    if (!productsResponse || !Array.isArray(productsResponse.edges)) {
+      logger.error("saleor_service_malformed_response", {
+        error: "Invalid products response structure",
+        dataType: "dishes",
+        received: productsResponse,
+      });
+      return getMockDishes(categoryId, restaurantId);
+    }
 
-     // Map Saleor products to our Dish format
-     const dishes: Dish[] = [];
-     
-     for (const product of products) {
-       // Skip malformed product data
-       if (!product || 
-           typeof product.id !== 'string' || 
-           typeof product.name !== 'string' ||
-           !product.productType ||
-           typeof product.productType.id !== 'string') {
-         logger.warn("saleor_service_skipping_malformed_product", {
-           product: product,
-           dataType: "dishes",
-         });
-         continue;
-       }
-       
-       // Filter by categoryId if provided
-       if (categoryId && product.productType.id !== categoryId) {
-         continue;
-       }
+    const products =
+      productsResponse.edges
+        .filter(
+          (edge): edge is { node: SaleorProduct } => !!edge && !!edge.node,
+        )
+        .map((edge) => edge.node) || [];
 
-       // Saleor does not provide a direct way to filter products by restaurant (collection).
-       // We set the restaurantId on dish objects for API consistency, but do not filter by it.
-       
-       // Get first variant with pricing, or use default values
-       const firstVariant = Array.isArray(product.variants) && product.variants.length > 0 
-         ? product.variants[0] 
-         : null;
-       const price = firstVariant?.pricing?.price?.amount
-         ? parseFloat(firstVariant.pricing.price.amount)
-         : 0;
-       const currency = firstVariant?.pricing?.price?.currency || "USD";
+    // Map Saleor products to our Dish format
+    const dishes: Dish[] = [];
 
-       dishes.push({
-         id: product.id,
-         name: product.name,
-         description: product.description || "",
-         price: price,
-         currency: currency,
-         categoryId: product.productType.id,
-         imageUrl: product.thumbnail?.url || "",
-         restaurantId: restaurantId || "", // Use provided restaurantId or empty string
-       });
-     }
+    for (const product of products) {
+      // Skip malformed product data
+      if (
+        !product ||
+        typeof product.id !== "string" ||
+        typeof product.name !== "string" ||
+        !product.productType ||
+        typeof product.productType.id !== "string"
+      ) {
+        logger.warn("saleor_service_skipping_malformed_product", {
+          product: product,
+          dataType: "dishes",
+        });
+        continue;
+      }
+
+      // Filter by categoryId if provided
+      if (categoryId && product.productType.id !== categoryId) {
+        continue;
+      }
+
+      // Saleor does not provide a direct way to filter products by restaurant (collection).
+      // We set the restaurantId on dish objects for API consistency, but do not filter by it.
+
+      // Get first variant with pricing, or use default values
+      const firstVariant =
+        Array.isArray(product.variants) && product.variants.length > 0
+          ? product.variants[0]
+          : null;
+      const price = firstVariant?.pricing?.price?.amount
+        ? parseFloat(firstVariant.pricing.price.amount)
+        : 0;
+      const currency = firstVariant?.pricing?.price?.currency || "USD";
+
+      dishes.push({
+        id: product.id,
+        name: product.name,
+        description: product.description || "",
+        price: price,
+        currency: currency,
+        categoryId: product.productType.id,
+        imageUrl: product.thumbnail?.url || "",
+        restaurantId: restaurantId || "", // Use provided restaurantId or empty string
+      });
+    }
 
     logger.info("saleor_service_success", {
       count: dishes.length,
       dataType: "dishes",
       filter: categoryId ? `categoryId=${categoryId}` : "none",
-      restaurantFilter: restaurantId ? `restaurantId=${restaurantId} (set on dish objects, not filtered)` : "none",
+      restaurantFilter: restaurantId
+        ? `restaurantId=${restaurantId} (set on dish objects, not filtered)`
+        : "none",
     });
     return dishes;
   } catch (error) {
@@ -436,6 +461,9 @@ function getMockRestaurants(): Restaurant[] {
     return {
       id: rest.id,
       name: rest.name,
+      description: rest.description,
+      imageUrl: rest.imageUrl,
+      tags: rest.tags,
       categories: [], // Empty categories - will be populated separately
       deliveryLocations: [],
     };
@@ -455,7 +483,7 @@ function getMockCategories(restaurantId?: string): Category[] {
       name: cat.name,
     };
   });
-  
+
   // For mock data, we return all categories regardless of restaurantId
   // since our test data doesn't have restaurant-specific categories
   return categories;
@@ -487,9 +515,9 @@ function getMockDishes(categoryId?: string, restaurantId?: string): Dish[] {
 
   // Override restaurantId in results if requested (for consistency with service behavior)
   if (restaurantId) {
-    dishes = dishes.map(dish => ({
+    dishes = dishes.map((dish) => ({
       ...dish,
-      restaurantId: restaurantId
+      restaurantId: restaurantId,
     }));
   }
 

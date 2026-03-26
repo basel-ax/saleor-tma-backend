@@ -29,7 +29,7 @@ import {
   toPlaceOrderPayload,
   OrderStatus,
 } from "./saleorOrder";
-import { forbiddenError } from "./errors";
+import { forbiddenError, badUserInputError, internalError } from "./errors";
 import { requireRead, requireWrite } from "./auth";
 import {
   fetchRestaurants,
@@ -61,45 +61,45 @@ const queryResolvers = {
     return await fetchRestaurants();
   },
 
-   /**
-    * Get categories for a restaurant
-    */
-    restaurantCategories: async (
-      _: any,
-      args: { restaurantId: string },
-      context: GraphQLContext,
-    ): Promise<Category[]> => {
-      const auth = requireRead(context.auth);
-      if (!auth.valid) {
-        logger.authFailure("permission_denied", context.auth.userId);
-        throw forbiddenError();
-      }
-      const { restaurantId } = args;
-      console.log(
-        `[Resolver] restaurantCategories for ${restaurantId}, user ${context.auth.userId}`,
-      );
-      return await fetchCategories(restaurantId);
-    },
+  /**
+   * Get categories for a restaurant
+   */
+  restaurantCategories: async (
+    _: any,
+    args: { restaurantId: string },
+    context: GraphQLContext,
+  ): Promise<Category[]> => {
+    const auth = requireRead(context.auth);
+    if (!auth.valid) {
+      logger.authFailure("permission_denied", context.auth.userId);
+      throw forbiddenError();
+    }
+    const { restaurantId } = args;
+    console.log(
+      `[Resolver] restaurantCategories for ${restaurantId}, user ${context.auth.userId}`,
+    );
+    return await fetchCategories(restaurantId);
+  },
 
-    /**
-     * Get dishes for a category
-     */
-    categoryDishes: async (
-      _: any,
-      args: { categoryId: string; restaurantId: string },
-      context: GraphQLContext,
-    ): Promise<Dish[]> => {
-      const auth = requireRead(context.auth);
-      if (!auth.valid) {
-        logger.authFailure("permission_denied", context.auth.userId);
-        throw forbiddenError();
-      }
-      const { categoryId, restaurantId } = args;
-      console.log(
-        `[Resolver] categoryDishes for ${categoryId}, restaurant ${restaurantId}, user ${context.auth.userId}`,
-      );
-      return await fetchDishes(categoryId, restaurantId);
-    },
+  /**
+   * Get dishes for a category
+   */
+  categoryDishes: async (
+    _: any,
+    args: { categoryId: string; restaurantId: string },
+    context: GraphQLContext,
+  ): Promise<Dish[]> => {
+    const auth = requireRead(context.auth);
+    if (!auth.valid) {
+      logger.authFailure("permission_denied", context.auth.userId);
+      throw forbiddenError();
+    }
+    const { categoryId, restaurantId } = args;
+    console.log(
+      `[Resolver] categoryDishes for ${categoryId}, restaurant ${restaurantId}, user ${context.auth.userId}`,
+    );
+    return await fetchDishes(categoryId, restaurantId);
+  },
 
   // ============================================================
   // Phase 3: Cart Query Resolvers
@@ -157,19 +157,19 @@ const mutationResolvers = {
     // Enforce write permission for mutations
     const auth = requireWrite(context.auth);
     if (!auth.valid) {
-      logger.authFailure("permission_denied", context.auth.userId);
+      logger.authFailure("permission_denied", auth.userId);
       throw forbiddenError();
     }
-    const userId = context.auth.userId;
-    const userName = context.auth.name;
-    const userLanguage = context.auth.language;
+    const userId = auth.userId;
+    const userName = auth.name;
+    const userLanguage = auth.language;
     console.log(
       `[Resolver] placeOrder by user ${userId} (${userName}, lang: ${userLanguage})`,
     );
 
     // Validate input
     if (!args.input.restaurantId) {
-      throw new Error("Restaurant is required");
+      throw badUserInputError("Restaurant is required", "restaurantId");
     }
 
     // Get user's cart
@@ -182,8 +182,9 @@ const mutationResolvers = {
     // If no items in input, use cart items
     if (!orderItems || orderItems.length === 0) {
       if (cart.items.length === 0) {
-        throw new Error(
+        throw badUserInputError(
           "Cart is empty. Add items to your cart before placing an order.",
+          "items",
         );
       }
 
@@ -198,7 +199,7 @@ const mutationResolvers = {
 
     // Validate delivery location
     if (!args.input.deliveryLocation?.address) {
-      throw new Error("Delivery address is required");
+      throw badUserInputError("Delivery address is required", "deliveryLocation");
     }
 
     // Build order input with cart items
@@ -208,6 +209,11 @@ const mutationResolvers = {
       items: orderItems,
       customerNote: args.input.customerNote,
     };
+
+    // Validate that we have a restaurantId after building orderInput
+    if (!orderInput.restaurantId) {
+      throw badUserInputError("Restaurant is required", "restaurantId");
+    }
 
     // Create mock Saleor order
     const result = await createSaleorOrder(
@@ -222,7 +228,7 @@ const mutationResolvers = {
       console.error(
         `[Resolver] placeOrder failed for user ${userId}: ${errorMsg}`,
       );
-      throw new Error(errorMsg);
+      throw badUserInputError(errorMsg);
     }
 
     // Clear cart after successful order
@@ -258,9 +264,10 @@ const mutationResolvers = {
       logger.authFailure("permission_denied", context.auth.userId);
       throw forbiddenError();
     }
-    const userId = context.auth.userId;
+    const userId = auth.userId;
+    const userName = auth.name;
     console.log(
-      `[Resolver] addToCart for user ${userId}, dish ${args.input.dishId}, quantity ${args.input.quantity}`,
+      `[Resolver] addToCart for user ${userId} (${userName}), dish ${args.input.dishId}, quantity ${args.input.quantity}`,
     );
 
     const cart = addToCart(userId, args.input);
@@ -294,9 +301,10 @@ const mutationResolvers = {
       logger.authFailure("permission_denied", context.auth.userId);
       throw forbiddenError();
     }
-    const userId = context.auth.userId;
+    const userId = auth.userId;
+    const userName = auth.name;
     console.log(
-      `[Resolver] updateCartItem for user ${userId}, dish ${args.input.dishId}, quantity ${args.input.quantity}`,
+      `[Resolver] updateCartItem for user ${userId} (${userName}), dish ${args.input.dishId}, quantity ${args.input.quantity}`,
     );
 
     const cart = updateCartItem(userId, args.input);
@@ -326,12 +334,13 @@ const mutationResolvers = {
   }> => {
     const auth = requireWrite(context.auth);
     if (!auth.valid) {
-      logger.authFailure("permission_denied", context.auth.userId);
+      logger.authFailure("permission_denied", auth.userId);
       throw forbiddenError();
     }
-    const userId = context.auth.userId;
+    const userId = auth.userId;
+    const userName = auth.name;
     console.log(
-      `[Resolver] removeCartItem for user ${userId}, dish ${args.dishId}`,
+      `[Resolver] removeCartItem for user ${userId} (${userName}), dish ${args.dishId}`,
     );
 
     const cart = removeFromCart(userId, args.dishId);
@@ -361,11 +370,12 @@ const mutationResolvers = {
   }> => {
     const auth = requireWrite(context.auth);
     if (!auth.valid) {
-      logger.authFailure("permission_denied", context.auth.userId);
+      logger.authFailure("permission_denied", auth.userId);
       throw forbiddenError();
     }
-    const userId = context.auth.userId;
-    console.log(`[Resolver] clearCart for user ${userId}`);
+    const userId = auth.userId;
+    const userName = auth.name;
+    console.log(`[Resolver] clearCart for user ${userId} (${userName})`);
 
     clearCart(userId);
 

@@ -11,6 +11,50 @@ This document provides comprehensive architecture documentation for the Telegram
 │                        TELEGRAM MINI APP (Frontend)                     │
 │                          (Telegram WebView)                              │
 └─────────────────────────────────┬───────────────────────────────────────┘
+                                   │ HTTP + X-Telegram-Init-Data Header
+                                   ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│                    CLOUDFLARE WORKER (This Project)                     │
+│  ┌─────────────────────────────────────────────────────────────────┐   │
+│  │                     GraphQL Endpoint (/graphql)                   │   │
+│  │  ┌───────────────┐  ┌───────────────┐  ┌───────────────────┐   │   │
+│  │  │   Auth Layer  │─▶│ GraphQL Router │─▶│  Resolver Engine  │   │   │
+│  │  │  (auth.ts)    │  │  (index.ts)    │  │  (resolvers.ts)   │   │   │
+│  │  └───────────────┘  └───────────────┘  └───────────────────┘   │   │
+│  │         │                   │                    │              │   │
+│  │         ▼                   ▼                    ▼              │   │
+│  │  ┌───────────────────────────────────────────────────────────┐  │   │
+│  │  │                    Cart Manager (cart.ts)                  │  │   │
+│  │  │           In-memory store (per-user session)             │  │   │
+│  │  └───────────────────────────────────────────────────────────┘  │   │
+│  │         │                   │                    │              │   │
+│  │         └───────────────────┴────────────────────┘              │   │
+│  │                           │                                       │   │
+│  │                           ▼                                       │   │
+│  │  ┌───────────────────────────────────────────────────────────┐  │   │
+│  │  │             Saleor Data Service (saleorService.ts)         │  │   │
+│  │  │    Fetches restaurants, categories, dishes from Saleor      │  │   │
+│  │  │         with automatic fallback to mock data               │  │   │
+│  │  └───────────────────────────────────────────────────────────┘  │   │
+│  └─────────────────────────────────────────────────────────────────┘   │
+│                                   │                                       │
+│                                   ▼                                       │
+│  ┌─────────────────────────────────────────────────────────────────┐   │
+│  │                  Saleor Client (saleorClient.ts)               │   │
+│  │              Thin HTTP client to Saleor GraphQL API             │   │
+│  └─────────────────────────────────────────────────────────────────┘   │
+└─────────────────────────────────┬───────────────────────────────────────┘
+                                   │ GraphQL Queries/Mutations
+                                   ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│                         SALEOR E-COMMERCE PLATFORM                      │
+│                    (External Order Management API)                       │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                        TELEGRAM MINI APP (Frontend)                     │
+│                          (Telegram WebView)                              │
+└─────────────────────────────────┬───────────────────────────────────────┘
                                   │ HTTP + X-Telegram-Init-Data Header
                                   ▼
 ┌─────────────────────────────────────────────────────────────────────────┐
@@ -313,19 +357,23 @@ User adds item from Restaurant B
 ### Query: Restaurants
 
 ```
-Frontend Query                    Worker Resolver                 Saleor
-     │                                │                            │
-     │ { restaurants(search) }       │                            │
-     │───────────────────────────────▶│                            │
-     │                                │ Validate Auth              │
-     │                                │─────────────────▶          │
-     │                                │                            │
-     │                                │ Get Restaurants           │
-     │                                │─────────────────▶ (Optional)
-     │                                │                            │
-     │ { restaurants: [...] }        │                            │
-     │◀───────────────────────────────│                            │
-     │                                │                            │
+Frontend Query                    Worker Resolver                 Saleor Data Service          Saleor
+     │                                │                                  │                      │
+     │ { restaurants(search) }       │                                  │                      │
+     │───────────────────────────────▶│                                  │                      │
+     │                                │ Validate Auth                    │                      │
+     │                                │─────────────────▶                │                      │
+     │                                │                                  │                      │
+     │                                │ Get Restaurants                  │                      │
+     │                                │─────────────────────────────────▶│                      │
+     │                                │                                  │ Query Collections    │
+     │                                │                                  │─────────────────────▶│
+     │                                │                                  │                      │
+     │                                │ { restaurants: [...] }          │                      │
+     │◀───────────────────────────────│◀─────────────────────────────────│                      │
+     │                                │                                  │                      │
+     │                                │                                  │                      │
+     │   (Falls back to mock data if Saleor unavailable)                │                      │
 ```
 
 ### Mutation: PlaceOrder
@@ -362,6 +410,8 @@ Frontend Mutation                 Worker Resolver                 Saleor
 | [`worker/src/resolvers.ts`](worker/src/resolvers.ts) | GraphQL resolver implementations | Query/mutation resolvers |
 | [`worker/src/contracts.ts`](worker/src/contracts.ts) | TypeScript interfaces | All domain types |
 | [`worker/src/saleorClient.ts`](worker/src/saleorClient.ts) | Saleor API client | GraphQL query executor |
+| [`worker/src/saleorService.ts`](worker/src/saleorService.ts) | Saleor data service | `fetchRestaurants`, `fetchCategories`, `fetchDishes` |
+| [`worker/src/saleorService.test.ts`](worker/src/saleorService.test.ts) | Saleor service tests | Unit tests for data service |
 | [`worker/src/errors.ts`](worker/src/errors.ts) | Error handling | `AppError`, error codes |
 | [`worker/src/logger.ts`](worker/src/logger.ts) | Structured logging | `logger`, `SecurityEvents` |
 | [`worker/schema.graphql`](worker/schema.graphql) | GraphQL schema definition | SDL schema |
@@ -412,6 +462,16 @@ Frontend Mutation                 Worker Resolver                 Saleor
 
 - [`worker/src/graphql.test.ts`](worker/src/graphql.test.ts) - Main test suite
 - [`worker/src/testHelpers.ts`](worker/src/testHelpers.ts) - Test utilities
+- [`worker/src/saleorService.test.ts`](worker/src/saleorService.test.ts) - Saleor data service tests
+
+## Completed Features
+
+### Phase 1: Saleor Data Service (Completed)
+- Real data fetching from Saleor Collections (restaurants)
+- Real data fetching from Saleor Product Types (categories)
+- Real data fetching from Saleor Products with pricing (dishes)
+- Automatic fallback to mock data when Saleor is unavailable
+- Robust error handling for malformed responses
 
 ## Future Considerations
 

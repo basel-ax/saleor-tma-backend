@@ -80,20 +80,20 @@ describe("GraphQL API Contract Tests", () => {
     });
   });
 
-   // Test 3: Query categoryDishes
-   describe("Query: categoryDishes", () => {
-     it("should return dishes for a category", async () => {
-       const response = await graphqlRequest(QUERY_CATEGORY_DISHES, {
-         categoryId: "cat1",
-         restaurantId: "restA",
-       });
+  // Test 3: Query categoryDishes
+  describe("Query: categoryDishes", () => {
+    it("should return dishes for a category", async () => {
+      const response = await graphqlRequest(QUERY_CATEGORY_DISHES, {
+        categoryId: "cat1",
+        restaurantId: "restA",
+      });
 
-       expect(response.errors).toBeUndefined();
-       expect(response.data).toBeDefined();
-       expect(response.data?.categoryDishes).toBeDefined();
-       expect(Array.isArray(response.data?.categoryDishes)).toBe(true);
-     });
-   });
+      expect(response.errors).toBeUndefined();
+      expect(response.data).toBeDefined();
+      expect(response.data?.categoryDishes).toBeDefined();
+      expect(Array.isArray(response.data?.categoryDishes)).toBe(true);
+    });
+  });
 
   // Test 4: Place order with delivery location (lat/lng)
   describe("Mutation: placeOrder with delivery location", () => {

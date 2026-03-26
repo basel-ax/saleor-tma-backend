@@ -18,6 +18,20 @@ import {
 } from "./contracts";
 import { extractAuthContext } from "./auth";
 import { resolvers } from "./resolvers";
+import {
+  fetchRestaurants,
+  fetchCategories,
+  fetchDishes,
+} from "./saleorService";
+import {
+  getCartSync,
+  getCartTotalSync,
+  getCartItemCountSync,
+  addToCartSync,
+  updateCartItemSync,
+  removeFromCartSync,
+  clearCartSync,
+} from "./cart";
 
 // CORS headers for preflight and actual requests
 // Allow any localhost port during development (5173, 5174, etc.)
@@ -240,10 +254,10 @@ function resolveClearCart(context: GraphQLContext): {
 }
 
 // Register the fetch event listener only in Cloudflare Workers environment
-if (typeof addEventListener === 'function') {
-  addEventListener('fetch', (event: any) => {
-    event.respondWith(handleRequest(event.request))
-  })
+if (typeof addEventListener === "function") {
+  addEventListener("fetch", (event: any) => {
+    event.respondWith(handleRequest(event.request));
+  });
 }
 
 /**
@@ -303,10 +317,16 @@ export async function handleRequest(request: Request): Promise<Response> {
   // Phase 2: Auth context extraction
   const context = createContext(request);
 
-  // Return 401 if auth is invalid (per specs/05-telegram-auth.md)
+  // Return appropriate error based on auth validity (per specs/05-telegram-auth.md)
   if (!context.auth.valid) {
     const requestId = crypto.randomUUID();
     logger.authFailure(context.auth.errorCode || "unknown", requestId);
+    
+    // Return 403 for forbidden users, 401 for other auth issues
+    if (context.auth.errorCode === "FORBIDDEN") {
+      return errorResponse(forbiddenError(), requestId);
+    }
+    
     // Show actual error reason instead of generic message
     const errorMessage =
       context.auth.errorCode === "EXPIRED"
@@ -338,7 +358,7 @@ export async function handleRequest(request: Request): Promise<Response> {
   } catch (error) {
     const requestId = crypto.randomUUID();
 
-    if (error instanceof AppError) {
+    if (error != null && typeof error === 'object' && 'toGraphQL' in error && typeof error.toGraphQL === 'function') {
       return errorResponse(error, requestId);
     }
 
@@ -367,14 +387,22 @@ async function resolveGraphQL(
 
   if (query.includes("restaurantCategories")) {
     const restaurantId = variables?.restaurantId || "restA"; // Default to test restaurant ID
-    const result = await resolvers.Query.restaurantCategories(null, { restaurantId }, context);
+    const result = await resolvers.Query.restaurantCategories(
+      null,
+      { restaurantId },
+      context,
+    );
     return { restaurantCategories: result };
   }
 
   if (query.includes("categoryDishes")) {
     const restaurantId = variables?.restaurantId || "restA"; // Default to test restaurant ID
     const categoryId = variables?.categoryId || "catA"; // Default to test category ID
-    const result = await resolvers.Query.categoryDishes(null, { categoryId, restaurantId }, context);
+    const result = await resolvers.Query.categoryDishes(
+      null,
+      { categoryId, restaurantId },
+      context,
+    );
     return { categoryDishes: result };
   }
 
@@ -393,7 +421,11 @@ async function resolveGraphQL(
         },
         items: [],
       } as PlaceOrderInputType);
-    const result = await resolvers.Mutation.placeOrder(null, { input }, context);
+    const result = await resolvers.Mutation.placeOrder(
+      null,
+      { input },
+      context,
+    );
     return { placeOrder: result };
   }
 
@@ -423,13 +455,21 @@ async function resolveGraphQL(
 
   if (query.includes("updateCartItem")) {
     const input = variables?.input || { dishId: "", quantity: 1 };
-    const result = await resolvers.Mutation.updateCartItem(null, { input }, context);
+    const result = await resolvers.Mutation.updateCartItem(
+      null,
+      { input },
+      context,
+    );
     return { updateCartItem: result };
   }
 
   if (query.includes("removeCartItem")) {
     const dishId = variables?.dishId || "";
-    const result = await resolvers.Mutation.removeCartItem(null, { dishId: dishId }, context);
+    const result = await resolvers.Mutation.removeCartItem(
+      null,
+      { dishId: dishId },
+      context,
+    );
     return { removeCartItem: result };
   }
 

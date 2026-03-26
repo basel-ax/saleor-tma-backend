@@ -73,12 +73,16 @@ export interface UpdateCartItemInput {
 export interface Restaurant {
   id: string;
   name: string;
+  description?: string;
+  imageUrl?: string;
+  tags?: string[];
   categories: Category[];
   deliveryLocations?: DeliveryLocation[];
 }
 
 export interface Category {
   id: string;
+  restaurantId?: string;
   name: string;
 }
 

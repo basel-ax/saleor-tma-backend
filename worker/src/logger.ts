@@ -41,6 +41,17 @@ function createLogEntry(
   };
 }
 
+const isDebugModeEnabled = () => {
+  try {
+    // @ts-ignore
+    return process.env.DEBUG_MODE === "true";
+  } catch {
+    return false;
+  }
+};
+
+export { isDebugModeEnabled };
+
 export const logger = {
   debug(event: string, extra?: Record<string, unknown>): void {
     console.log(JSON.stringify(createLogEntry(LogLevel.DEBUG, event, extra)));
@@ -77,5 +88,18 @@ export const logger = {
 
   orderFailed(userId: string, reason: string): void {
     this.warn(SecurityEvents.ORDER_FAILED, { userId, reason });
+  },
+
+  // Debug mode logging for Saleor requests/responses
+  saleorDebugRequest(query: string, variables?: Record<string, unknown>): void {
+    if (isDebugModeEnabled()) {
+      this.debug("saleor_debug_request", { query, variables });
+    }
+  },
+
+  saleorDebugResponse(data: unknown): void {
+    if (isDebugModeEnabled()) {
+      this.debug("saleor_debug_response", { data });
+    }
   },
 };

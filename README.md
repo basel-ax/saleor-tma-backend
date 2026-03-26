@@ -91,6 +91,8 @@ cd worker
 pnpm test
 ```
 
+For more testing options, see [worker/TESTING.md](worker/TESTING.md).
+
 ### Running Tests
 
 ```bash
@@ -106,7 +108,12 @@ SPEC_KIT_BASE_URL=http://localhost:8787 pnpm test
 
 # Option 3: Run specific test file
 npx vitest run src/graphql.test.ts
+
+# Option 4: Run tests with debug mode (logs Saleor requests/responses)
+cd worker && pnpm run test:debug
 ```
+
+When `DEBUG_MODE=true` is enabled, Saleor GraphQL requests and responses are logged to the console for debugging integration issues. Debug output includes query strings, variables, and response data.
 
 ### Deployment
 
@@ -243,7 +250,24 @@ This section maps each specification document to its corresponding implementatio
 
 ---
 
-### Phase 1: Contract & API Skeleton
+### Phase 1: Saleor Data Service
+
+| Spec Document | Implementation File | Description |
+|---------------|---------------------|-------------|
+| - | [`worker/src/saleorService.ts`](worker/src/saleorService.ts) | Saleor data service with real API integration |
+| - | [`worker/src/saleorService.test.ts`](worker/src/saleorService.test.ts) | Unit tests for saleorService |
+| [`specs/01-api-contract.md`](specs/01-api-contract.md) | [`worker/src/resolvers.ts`](worker/src/resolvers.ts) | Updated to use saleorService for data fetching |
+
+**Key Features:**
+- Fetches restaurants from Saleor Collections
+- Fetches categories from Saleor Product Types
+- Fetches dishes from Saleor Products with pricing
+- Automatic fallback to mock data when Saleor is unavailable
+- Robust error handling for malformed responses
+
+---
+
+### Phase 2: Contract & API Skeleton
 
 | Spec Document | Implementation File | Description |
 |---------------|---------------------|-------------|
@@ -251,7 +275,7 @@ This section maps each specification document to its corresponding implementatio
 | [`specs/01-api-contract.md`](specs/01-api-contract.md) | [`worker/src/contracts.ts`](worker/src/contracts.ts) | TypeScript interfaces for all types |
 | [`specs/01-api-contract.md`](specs/01-api-contract.md) | [`worker/src/resolvers.ts`](worker/src/resolvers.ts) | Query and mutation resolvers |
 
-### Phase 2: Telegram Auth & Context
+### Phase 3: Telegram Auth & Context
 
 | Spec Document | Implementation File | Description |
 |---------------|---------------------|-------------|
@@ -259,7 +283,7 @@ This section maps each specification document to its corresponding implementatio
 | [`specs/05-telegram-auth.md`](specs/05-telegram-auth.md) | [`worker/src/index.ts`](worker/src/index.ts) | GraphQL context creation with auth |
 | [`specs/05-telegram-auth.md`](specs/05-telegram-auth.md) | [`worker/src/contracts.ts`](worker/src/contracts.ts) | `AuthContext`, `GraphQLContext` types |
 
-### Phase 3: In-Memory Cart & State
+### Phase 4: In-Memory Cart & State
 
 | Spec Document | Implementation File | Description |
 |---------------|---------------------|-------------|
@@ -267,7 +291,7 @@ This section maps each specification document to its corresponding implementatio
 | [`specs/02-interaction-flow.md`](specs/02-interaction-flow.md) | [`worker/src/index.ts`](worker/src/index.ts) | Cart query/mutation handlers |
 | [`specs/02-interaction-flow.md`](specs/02-interaction-flow.md) | [`worker/src/contracts.ts`](worker/src/contracts.ts) | `CartItem`, `CartState` types |
 
-### Phase 4: Place Order Flow
+### Phase 5: Place Order Flow
 
 | Spec Document | Implementation File | Description |
 |---------------|---------------------|-------------|
@@ -275,7 +299,7 @@ This section maps each specification document to its corresponding implementatio
 | [`specs/02-interaction-flow.md`](specs/02-interaction-flow.md) | [`worker/src/index.ts`](worker/src/index.ts) | `placeOrder` mutation resolver |
 | [`specs/01-api-contract.md`](specs/01-api-contract.md) | [`worker/src/contracts.ts`](worker/src/contracts.ts) | `PlaceOrderInput`, `PlaceOrderPayload` |
 
-### Phase 5: Speckit Autotests
+### Phase 6: Speckit Autotests
 
 | Spec Document | Implementation File | Description |
 |---------------|---------------------|-------------|
@@ -283,7 +307,7 @@ This section maps each specification document to its corresponding implementatio
 | [`specs/03-autotests.md`](specs/03-autotests.md) | [`worker/src/testHelpers.ts`](worker/src/testHelpers.ts) | Test utilities and fixtures |
 | [`specs/00-speckit-setup.md`](specs/00-speckit-setup.md) | [`specs/spec-kit.config.md`](specs/spec-kit.config.md) | Speckit configuration |
 
-### Phase 6: Deployment Scaffolding
+### Phase 7: Deployment Scaffolding
 
 | Spec Document | Implementation File | Description |
 |---------------|---------------------|-------------|
@@ -291,7 +315,7 @@ This section maps each specification document to its corresponding implementatio
 | [`specs/04-deployment.md`](specs/04-deployment.md) | [`worker/ENVIRONMENT.md`](worker/ENVIRONMENT.md) | Environment variables |
 | [`specs/04-deployment.md`](specs/04-deployment.md) | [`wrangler.toml`](wrangler.toml) | Worker configuration |
 
-### Phase 7: Security Review & Hardening
+### Phase 8: Security Review & Hardening
 
 | Spec Document | Implementation File | Description |
 |---------------|---------------------|-------------|
@@ -349,7 +373,8 @@ Telegram Mini App
 ┌───────────────────────────────────────┐
 │ Data Sources                          │
 │ - Cart: cart.ts (in-memory)           │
-│ - Saleor: saleorClient.ts             │
+│ - Saleor Data: saleorService.ts       │
+│   └─ saleorClient.ts (GraphQL client) │
 └───────────────────────────────────────┘
 ```
 
@@ -360,8 +385,19 @@ Telegram Mini App
 - **GraphQL API Surface**: Exposed by the Worker at `/graphql`
 - **Telegram Authentication**: Validates `X-Telegram-Init-Data` header
 - **In-Memory Cart**: Per-user cart with single-restaurant constraint
-- **Saleor Integration**: Thin HTTP client for order management
+- **Saleor Data Service**: Fetches real restaurants/categories/dishes from Saleor with fallback to mock data
 - **Production Ready**: Cloudflare KV persistence and Wrangler deployment
+
+---
+
+## Schema & Type Definitions
+
+The project uses two key definition files:
+
+| File | Description |
+|------|-------------|
+| [`worker/schema.graphql`](worker/schema.graphql) | GraphQL SDL schema defining the API contract |
+| [`worker/src/contracts.ts`](worker/src/contracts.ts) | TypeScript interfaces and types |
 
 ---
 

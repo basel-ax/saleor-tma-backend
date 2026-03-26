@@ -2,7 +2,7 @@
 // Provides GraphQL client for Saleor API communication
 // See: task/phase-9-improve-code.md
 
-import { logger } from "./logger";
+import { logger, isDebugModeEnabled } from "./logger";
 
 /**
  * Saleor client configuration
@@ -166,8 +166,13 @@ export function isSaleorConfigured(): boolean {
   if (typeof globalThis !== "undefined") {
     const saleorUrl = (globalThis as any).SALEOR_API_URL as string | undefined;
     const saleorToken = (globalThis as any).SALEOR_TOKEN as string | undefined;
-    console.log('DEBUG: SALEOR_API_URL from globalThis:', saleorUrl);
-    console.log('DEBUG: SALEOR_TOKEN from globalThis:', saleorToken ? `set (length: ${saleorToken.length})` : 'unset');
+    if (isDebugModeEnabled()) {
+      console.log("DEBUG: SALEOR_API_URL from globalThis:", saleorUrl);
+      console.log(
+        "DEBUG: SALEOR_TOKEN from globalThis:",
+        saleorToken ? `set (length: ${saleorToken.length})` : "unset",
+      );
+    }
     return !!(saleorUrl && saleorToken);
   }
   return false;
@@ -180,8 +185,16 @@ export function getSaleorClient(): SaleorClient | null {
   if (typeof globalThis !== "undefined") {
     const saleorUrl = (globalThis as any).SALEOR_API_URL as string | undefined;
     const saleorToken = (globalThis as any).SALEOR_TOKEN as string | undefined;
-    console.log('DEBUG: getSaleorClient - SALEOR_API_URL from globalThis:', saleorUrl);
-    console.log('DEBUG: getSaleorClient - SALEOR_TOKEN from globalThis:', saleorToken ? `set (length: ${saleorToken.length})` : 'unset');
+    if (isDebugModeEnabled()) {
+      console.log(
+        "DEBUG: getSaleorClient - SALEOR_API_URL from globalThis:",
+        saleorUrl,
+      );
+      console.log(
+        "DEBUG: getSaleorClient - SALEOR_TOKEN from globalThis:",
+        saleorToken ? `set (length: ${saleorToken.length})` : "unset",
+      );
+    }
     if (saleorUrl && saleorToken) {
       return new SaleorClient({
         apiUrl: saleorUrl,
