@@ -9,20 +9,21 @@
       "workerd"
     ]
   },
-  "scripts": {
-    "build": "build-worker --entry src/index.ts --out dist/bundled.js --debug",
-    "build:prod": "build-worker --entry src/index.ts --out dist/bundled.js",
-    "build:tsc": "tsc -p tsconfig.json",
-    "test": "vitest run",
-    "test:debug": "DEBUG_MODE=true vitest run",
-    "test:watch": "vitest",
-    "dev": "wrangler dev",
-    "dev:local": "node scripts/dev.mjs",
-    "deploy": "wrangler deploy",
-    "deploy:prod": "wrangler deploy --env production",
-    "login": "wrangler login",
-    "whoami": "wrangler whoami"
-  },
+    "scripts": {
+      "build": "build-worker --entry src/index.ts --out dist/bundled.js --debug",
+      "build:prod": "build-worker --entry src/index.ts --out dist/bundled.js",
+      "build:tsc": "tsc -p tsconfig.json",
+      "test": "vitest run",
+      "test:debug": "DEBUG_MODE=true vitest run",
+      "test:saleor-debug": "TEST_DEBUG=true vitest run",
+      "test:watch": "vitest",
+      "dev": "wrangler dev",
+      "dev:local": "node scripts/dev.mjs",
+      "deploy": "wrangler deploy",
+      "deploy:prod": "wrangler deploy --env production",
+      "login": "wrangler login",
+      "whoami": "wrangler whoami"
+    },
   "dependencies": {
     "@esbuild-plugins/node-modules-polyfill": "^0.2.2",
     "build-worker": "^0.3.4",

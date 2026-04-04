@@ -1,14 +1,42 @@
-AI Agents Integration Guide for saleor-tma-backend GraphQL Backend (Telegram Mini App)
+Opencode Agent Integration Guide for saleor-tma-backend GraphQL Backend (Telegram Mini App)
 
 Overview
-- This guide describes how AI Agents (QA, SEC, TS_CODE) should integrate with the GraphQL backend powering the Telegram Mini App.
-- Follow specs under specs/ (contract, flows, autotests) and the agent guides (AGENTS.md, QA_AGENT.md, SEC_AGENT.md, TS_CODE_AGENT.md).
+- This guide describes how opencode agents should integrate with the GraphQL backend powering the Telegram Mini App.
+- Follow specs under specs/ (contract, flows, autotests) and the agent guides (docs/AGENTS.md, docs/QA_AGENT.md, docs/SEC_AGENT.md, docs/TS_CODE_AGENT.md).
+- Use opencode's agent system with category-based delegation and skills.
 
 Prerequisites
 - Access to the GraphQL endpoint exposed by the backend (e.g., https://<host>/graphql).
-- A Known Telegram Init Data payload format and a header name to pass authentication/context (e.g., Telegram-Init-Data).
+- A Known Telegram Init Data payload format and a header name to pass authentication/context (e.g., X-Telegram-Init-Data).
 - Ensure Node/Go environments align with the repo's worker setup and that Wrangler is available if you deploy tests against Cloudflare Workers.
 - Read the contract specs: specs/01-api-contract.md, specs/02-interaction-flow.md, specs/03-autotests.md.
+
+Agent Categories and Skills
+Opencode uses category-based agents with specialized skills for optimal task execution:
+
+Categories:
+- visual-engineering — Frontend, UI/UX, design, styling, animation
+- ultrabrain — Use ONLY for genuinely hard, logic-heavy tasks. Give clear goals only, not step-by-step instructions.
+- deep — Goal-oriented autonomous problem-solving. Thorough research before action. For hairy problems requiring deep understanding.
+- artistry — Complex problem-solving with unconventional, creative approaches - beyond standard patterns
+- quick — Trivial tasks - single file changes, typo fixes, simple modifications
+- unspecified-low — Tasks that don't fit other categories, low effort required
+- unspecified-high — Tasks that don't fit other categories, high effort required
+- writing — Documentation, prose, technical writing
+
+Skills (via skill tool):
+- Built-in: playwright, frontend-ui-ux, git-master, dev-browser
+
+For EVERY skill, ask: "Does this skill's expertise domain overlap with my task?"
+- If YES → INCLUDE in load_skills=[...]
+- If NO → OMIT (no justification needed)
+
+Delegation Pattern:
+task(
+  category="[selected-category]",
+  load_skills=["skill-1", "skill-2"],  // Include ALL relevant skills
+  prompt="[detailed prompt with 6 sections]"
+)
 
 API surface and contracts
 - The integration should target a minimal GraphQL surface driven by frontend flows:
@@ -19,7 +47,7 @@ API surface and contracts
 - Use a per-request auth context derived from Telegram Init Data and attached to the GraphQL context for downstream logic.
 
 Authentication & context
-- All GraphQL calls must include a Telegram Init Data header (e.g., Telegram-Init-Data: { ... }).
+- All GraphQL calls must include a Telegram Init Data header (X-Telegram-Init-Data: { ... }).
 - Middleware should verify and parse this data, producing a validated context object (e.g., ctx.user, ctx.session).
 - Resolvers should rely on the context rather than pulling auth data from headers repeatedly.
 
@@ -29,11 +57,11 @@ Usage patterns (frontend integration)
     "query": "query GetProducts { products { id name price } }",
     "variables": {}
   }
-- Include Telegram Init Data header on every request: Telegram-Init-Data: { ... }
+- Include Telegram Init Data header on every request: X-Telegram-Init-Data: { ... }
 - Example (Curl):
   curl -X POST https://<host>/graphql \
     -H "Content-Type: application/json" \
-    -H "Telegram-Init-Data: { ... }" \
+    -H "X-Telegram-Init-Data: { ... }" \
     -d '{"query":"query GetProducts { products { id name price } }"}'
 
 Frontend Integration Details
@@ -69,12 +97,11 @@ Observability
 Developer notes
 - The GraphQL backend lives under worker/schema.graphql with resolvers in worker/src. Use worker/index.ts as the entry.
 - The integration should respect the project’s patch conventions and be validated by TS_CODE_AGENT and QA_AGENT before merging.
-- Frontend integration details are documented in frontend-tma.md
+- Frontend integration details are documented in docs/frontend-tma.md
+- GraphQL API reference: docs/graphql-api.md (if present in repo)
 
 References
 - Specs: specs/01-api-contract.md, specs/02-interaction-flow.md, specs/03-autotests.md
-- Agent guides: AGENTS.md, QA_AGENT.md, SEC_AGENT.md, TS_CODE_AGENT.md
-- Frontend specification: frontend-tma.md
+- Agent guides: docs/AGENTS.md, docs/QA_AGENT.md, docs/SEC_AGENT.md, docs/TS_CODE_AGENT.md
+- Frontend specification: docs/frontend-tma.md
 - GraphQL API reference: docs/graphql-api.md (if present in repo)
-
-End of guide

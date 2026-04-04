@@ -239,14 +239,14 @@ This section maps each specification document to its corresponding implementatio
 |----------|---------------|
 | **Project Planning** | [.planning/PROJECT.md](.planning/PROJECT.md), [.planning/ROADMAP.md](.planning/ROADMAP.md) |
 | **Requirements** | [.planning/REQUIREMENTS.md](.planning/REQUIREMENTS.md), [.planning/STATE.md](.planning/STATE.md) |
-| **Getting Started** | [README.md](README.md), [IMPLEMENTATION.md](IMPLEMENTATION.md) |
+| **Getting Started** | [README.md](README.md), [docs/IMPLEMENTATION.md](docs/IMPLEMENTATION.md) |
 | **Architecture** | [worker/ARCHITECTURE.md](worker/ARCHITECTURE.md) |
-| **API Contract** | [specs/01-api-contract.md](specs/01-api-contract.md) |
+| **API Contract** | [docs/specs/01-api-contract.md](docs/specs/01-api-contract.md) |
 | **Testing** | [worker/TESTING.md](worker/TESTING.md) |
 | **Deployment** | [worker/DEPLOYMENT.md](worker/DEPLOYMENT.md) |
 | **Environment** | [worker/ENVIRONMENT.md](worker/ENVIRONMENT.md) |
-| **Decision Log** | [DECISION_LOG.md](DECISION_LOG.md) |
-| **Agent Guides** | [AGENTS.md](AGENTS.md) |
+| **Decision Log** | [docs/DECISION_LOG.md](docs/DECISION_LOG.md) |
+| **Agent Guides** | [docs/AGENTS.md](docs/AGENTS.md) |
 
 ---
 
@@ -256,7 +256,7 @@ This section maps each specification document to its corresponding implementatio
 |---------------|---------------------|-------------|
 | - | [`worker/src/saleorService.ts`](worker/src/saleorService.ts) | Saleor data service with real API integration |
 | - | [`worker/src/saleorService.test.ts`](worker/src/saleorService.test.ts) | Unit tests for saleorService |
-| [`specs/01-api-contract.md`](specs/01-api-contract.md) | [`worker/src/resolvers.ts`](worker/src/resolvers.ts) | Updated to use saleorService for data fetching |
+| [`docs/specs/01-api-contract.md`](docs/specs/01-api-contract.md) | [`worker/src/resolvers.ts`](worker/src/resolvers.ts) | Updated to use saleorService for data fetching |
 
 **Key Features:**
 - Fetches restaurants from Saleor Collections
@@ -271,49 +271,49 @@ This section maps each specification document to its corresponding implementatio
 
 | Spec Document | Implementation File | Description |
 |---------------|---------------------|-------------|
-| [`specs/01-api-contract.md`](specs/01-api-contract.md) | [`worker/schema.graphql`](worker/schema.graphql) | GraphQL SDL schema definition |
-| [`specs/01-api-contract.md`](specs/01-api-contract.md) | [`worker/src/contracts.ts`](worker/src/contracts.ts) | TypeScript interfaces for all types |
-| [`specs/01-api-contract.md`](specs/01-api-contract.md) | [`worker/src/resolvers.ts`](worker/src/resolvers.ts) | Query and mutation resolvers |
+| [`docs/specs/01-api-contract.md`](docs/specs/01-api-contract.md) | [`worker/schema.graphql`](worker/schema.graphql) | GraphQL SDL schema definition |
+| [`docs/specs/01-api-contract.md`](docs/specs/01-api-contract.md) | [`worker/src/contracts.ts`](worker/src/contracts.ts) | TypeScript interfaces for all types |
+| [`docs/specs/01-api-contract.md`](docs/specs/01-api-contract.md) | [`worker/src/resolvers.ts`](worker/src/resolvers.ts) | Query and mutation resolvers |
 
 ### Phase 3: Telegram Auth & Context
 
 | Spec Document | Implementation File | Description |
 |---------------|---------------------|-------------|
-| [`specs/05-telegram-auth.md`](specs/05-telegram-auth.md) | [`worker/src/auth.ts`](worker/src/auth.ts) | Telegram Init Data validation |
-| [`specs/05-telegram-auth.md`](specs/05-telegram-auth.md) | [`worker/src/index.ts`](worker/src/index.ts) | GraphQL context creation with auth |
-| [`specs/05-telegram-auth.md`](specs/05-telegram-auth.md) | [`worker/src/contracts.ts`](worker/src/contracts.ts) | `AuthContext`, `GraphQLContext` types |
+| [`docs/specs/05-telegram-auth.md`](docs/specs/05-telegram-auth.md) | [`worker/src/auth.ts`](worker/src/auth.ts) | Telegram Init Data validation |
+| [`docs/specs/05-telegram-auth.md`](docs/specs/05-telegram-auth.md) | [`worker/src/index.ts`](worker/src/index.ts) | GraphQL context creation with auth |
+| [`docs/specs/05-telegram-auth.md`](docs/specs/05-telegram-auth.md) | [`worker/src/contracts.ts`](worker/src/contracts.ts) | `AuthContext`, `GraphQLContext` types |
 
 ### Phase 4: In-Memory Cart & State
 
 | Spec Document | Implementation File | Description |
 |---------------|---------------------|-------------|
-| [`specs/02-interaction-flow.md`](specs/02-interaction-flow.md) | [`worker/src/cart.ts`](worker/src/cart.ts) | In-memory cart operations |
-| [`specs/02-interaction-flow.md`](specs/02-interaction-flow.md) | [`worker/src/index.ts`](worker/src/index.ts) | Cart query/mutation handlers |
-| [`specs/02-interaction-flow.md`](specs/02-interaction-flow.md) | [`worker/src/contracts.ts`](worker/src/contracts.ts) | `CartItem`, `CartState` types |
+| [`docs/specs/02-interaction-flow.md`](docs/specs/02-interaction-flow.md) | [`worker/src/cart.ts`](worker/src/cart.ts) | In-memory cart operations |
+| [`docs/specs/02-interaction-flow.md`](docs/specs/02-interaction-flow.md) | [`worker/src/index.ts`](worker/src/index.ts) | Cart query/mutation handlers |
+| [`docs/specs/02-interaction-flow.md`](docs/specs/02-interaction-flow.md) | [`worker/src/contracts.ts`](worker/src/contracts.ts) | `CartItem`, `CartState` types |
 
 ### Phase 5: Place Order Flow
 
 | Spec Document | Implementation File | Description |
 |---------------|---------------------|-------------|
-| [`specs/02-interaction-flow.md`](specs/02-interaction-flow.md) | [`worker/src/saleorOrder.ts`](worker/src/saleorOrder.ts) | Saleor order creation |
-| [`specs/02-interaction-flow.md`](specs/02-interaction-flow.md) | [`worker/src/index.ts`](worker/src/index.ts) | `placeOrder` mutation resolver |
-| [`specs/01-api-contract.md`](specs/01-api-contract.md) | [`worker/src/contracts.ts`](worker/src/contracts.ts) | `PlaceOrderInput`, `PlaceOrderPayload` |
+| [`docs/specs/02-interaction-flow.md`](docs/specs/02-interaction-flow.md) | [`worker/src/saleorOrder.ts`](worker/src/saleorOrder.ts) | Saleor order creation |
+| [`docs/specs/02-interaction-flow.md`](docs/specs/02-interaction-flow.md) | [`worker/src/index.ts`](worker/src/index.ts) | `placeOrder` mutation resolver |
+| [`docs/specs/01-api-contract.md`](docs/specs/01-api-contract.md) | [`worker/src/contracts.ts`](worker/src/contracts.ts) | `PlaceOrderInput`, `PlaceOrderPayload` |
 
 ### Phase 6: Speckit Autotests
 
 | Spec Document | Implementation File | Description |
 |---------------|---------------------|-------------|
-| [`specs/03-autotests-speckit.md`](specs/03-autotests-speckit.md) | [`worker/src/graphql.test.ts`](worker/src/graphql.test.ts) | Contract test suite |
-| [`specs/03-autotests.md`](specs/03-autotests.md) | [`worker/src/testHelpers.ts`](worker/src/testHelpers.ts) | Test utilities and fixtures |
-| [`specs/00-speckit-setup.md`](specs/00-speckit-setup.md) | [`specs/spec-kit.config.md`](specs/spec-kit.config.md) | Speckit configuration |
+| [`docs/specs/03-autotests-speckit.md`](docs/specs/03-autotests-speckit.md) | [`worker/src/graphql.test.ts`](worker/src/graphql.test.ts) | Contract test suite |
+| [`docs/specs/03-autotests.md`](docs/specs/03-autotests.md) | [`worker/src/testHelpers.ts`](worker/src/testHelpers.ts) | Test utilities and fixtures |
+| [`docs/specs/00-speckit-setup.md`](docs/specs/00-speckit-setup.md) | [`docs/specs/spec-kit.config.md`](docs/specs/00-speckit-setup.md) | Speckit configuration |
 
 ### Phase 7: Deployment Scaffolding
 
 | Spec Document | Implementation File | Description |
 |---------------|---------------------|-------------|
-| [`specs/04-deployment.md`](specs/04-deployment.md) | [`worker/DEPLOYMENT.md`](worker/DEPLOYMENT.md) | Deployment guide |
-| [`specs/04-deployment.md`](specs/04-deployment.md) | [`worker/ENVIRONMENT.md`](worker/ENVIRONMENT.md) | Environment variables |
-| [`specs/04-deployment.md`](specs/04-deployment.md) | [`wrangler.toml`](wrangler.toml) | Worker configuration |
+| [`docs/specs/04-deployment.md`](docs/specs/04-deployment.md) | [`worker/DEPLOYMENT.md`](worker/DEPLOYMENT.md) | Deployment guide |
+| [`docs/specs/04-deployment.md`](docs/specs/04-deployment.md) | [`worker/ENVIRONMENT.md`](worker/ENVIRONMENT.md) | Environment variables |
+| [`docs/specs/04-deployment.md`](docs/specs/04-deployment.md) | [`wrangler.toml`](wrangler.toml) | Worker configuration |
 
 ### Phase 8: Security Review & Hardening
 
@@ -321,7 +321,7 @@ This section maps each specification document to its corresponding implementatio
 |---------------|---------------------|-------------|
 | - | [`worker/src/errors.ts`](worker/src/errors.ts) | Standardized error codes |
 | - | [`worker/src/logger.ts`](worker/src/logger.ts) | Structured logging |
-| [`SEC_AGENT.md`](SEC_AGENT.md) | - | Security audit template |
+| [`docs/SEC_AGENT.md`](docs/SEC_AGENT.md) | - | Security audit template |
 
 ---
 
@@ -331,20 +331,20 @@ This section maps each specification document to its corresponding implementatio
 
 | Operation | Spec Reference | Implementation |
 |-----------|---------------|----------------|
-| `restaurants(search: String)` | [`specs/01-api-contract.md`](specs/01-api-contract.md) | [`worker/src/index.ts:resolveRestaurants`](worker/src/index.ts) |
-| `restaurantCategories(restaurantId: ID!)` | [`specs/01-api-contract.md`](specs/01-api-contract.md) | [`worker/src/index.ts:resolveCategories`](worker/src/index.ts) |
-| `categoryDishes(restaurantId: ID!, categoryId: ID!)` | [`specs/01-api-contract.md`](specs/01-api-contract.md) | [`worker/src/index.ts:resolveDishes`](worker/src/index.ts) |
-| `cart` | [`specs/02-interaction-flow.md`](specs/02-interaction-flow.md) | [`worker/src/index.ts:resolveCart`](worker/src/index.ts) |
+| `restaurants(search: String)` | [`docs/specs/01-api-contract.md`](docs/specs/01-api-contract.md) | [`worker/src/index.ts:resolveRestaurants`](worker/src/index.ts) |
+| `restaurantCategories(restaurantId: ID!)` | [`docs/specs/01-api-contract.md`](docs/specs/01-api-contract.md) | [`worker/src/index.ts:resolveCategories`](worker/src/index.ts) |
+| `categoryDishes(restaurantId: ID!, categoryId: ID!)` | [`docs/specs/01-api-contract.md`](docs/specs/01-api-contract.md) | [`worker/src/index.ts:resolveDishes`](worker/src/index.ts) |
+| `cart` | [`docs/specs/02-interaction-flow.md`](docs/specs/02-interaction-flow.md) | [`worker/src/index.ts:resolveCart`](worker/src/index.ts) |
 
 ### Mutations
 
 | Operation | Spec Reference | Implementation |
 |-----------|---------------|----------------|
-| `placeOrder(input: PlaceOrderInput!)` | [`specs/01-api-contract.md`](specs/01-api-contract.md) | [`worker/src/index.ts:resolvePlaceOrder`](worker/src/index.ts) |
-| `addToCart(input: AddToCartInput!)` | [`specs/02-interaction-flow.md`](specs/02-interaction-flow.md) | [`worker/src/index.ts:resolveAddToCart`](worker/src/index.ts) |
-| `updateCartItem(input: UpdateCartItemInput!)` | [`specs/02-interaction-flow.md`](specs/02-interaction-flow.md) | [`worker/src/index.ts:resolveUpdateCartItem`](worker/src/index.ts) |
-| `removeCartItem(dishId: ID!)` | [`specs/02-interaction-flow.md`](specs/02-interaction-flow.md) | [`worker/src/index.ts:resolveRemoveCartItem`](worker/src/index.ts) |
-| `clearCart` | [`specs/02-interaction-flow.md`](specs/02-interaction-flow.md) | [`worker/src/index.ts:resolveClearCart`](worker/src/index.ts) |
+| `placeOrder(input: PlaceOrderInput!)` | [`docs/specs/01-api-contract.md`](docs/specs/01-api-contract.md) | [`worker/src/index.ts:resolvePlaceOrder`](worker/src/index.ts) |
+| `addToCart(input: AddToCartInput!)` | [`docs/specs/02-interaction-flow.md`](docs/specs/02-interaction-flow.md) | [`worker/src/index.ts:resolveAddToCart`](worker/src/index.ts) |
+| `updateCartItem(input: UpdateCartItemInput!)` | [`docs/specs/02-interaction-flow.md`](docs/specs/02-interaction-flow.md) | [`worker/src/index.ts:resolveUpdateCartItem`](worker/src/index.ts) |
+| `removeCartItem(dishId: ID!)` | [`docs/specs/02-interaction-flow.md`](docs/specs/02-interaction-flow.md) | [`worker/src/index.ts:resolveRemoveCartItem`](worker/src/index.ts) |
+| `clearCart` | [`docs/specs/02-interaction-flow.md`](docs/specs/02-interaction-flow.md) | [`worker/src/index.ts:resolveClearCart`](worker/src/index.ts) |
 
 ---
 
@@ -537,7 +537,7 @@ async function graphqlRequest(query: string, variables?: Record<string, unknown>
 
 ## What's Next
 
-- Review [DECISION_LOG.md](DECISION_LOG.md) for architectural decisions
+- Review [docs/DECISION_LOG.md](docs/DECISION_LOG.md) for architectural decisions
 - Check [worker/ARCHITECTURE.md](worker/ARCHITECTURE.md) for detailed system design
 - See [.planning/ROADMAP.md](.planning/ROADMAP.md) for v1.0 milestone progress
 - See [task/phase-9-improve-code.md](task/phase-9-improve-code.md) for current improvements
