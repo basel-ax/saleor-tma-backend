@@ -8,6 +8,85 @@
  */
 
 import { createServer } from "http";
+import { readFileSync, existsSync } from "fs";
+import { resolve, dirname } from "path";
+import { fileURLToPath } from "url";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
+/**
+ * Load environment variables from .dev.vars file
+ * Format: KEY=value (one per line, # for comments)
+ */
+function loadEnvVars() {
+  const envPath = resolve(__dirname, "../.dev.vars");
+  
+  if (!existsSync(envPath)) {
+    console.warn("⚠️  .dev.vars file not found. Saleor API calls will use mock data.");
+    console.warn("   Copy .dev.vars.example to .dev.vars and fill in your Saleor credentials.");
+    return;
+  }
+
+  try {
+    const content = readFileSync(envPath, "utf-8");
+    const lines = content.split("\n");
+    
+    for (const line of lines) {
+      const trimmed = line.trim();
+      
+      // Skip empty lines and comments
+      if (!trimmed || trimmed.startsWith("#")) {
+        continue;
+      }
+      
+      // Parse KEY=value
+      const eqIndex = trimmed.indexOf("=");
+      if (eqIndex === -1) continue;
+      
+      const key = trimmed.slice(0, eqIndex).trim();
+      const value = trimmed.slice(eqIndex + 1).trim();
+      
+      // Set on globalThis for Cloudflare Worker compatibility
+      globalThis[key] = value;
+      
+      // Mask sensitive values in logs
+      if (key === "SALEOR_TOKEN" || key === "TELEGRAM_BOT_TOKEN") {
+        const masked = value.length > 8 
+          ? value.slice(0, 4) + "..." + value.slice(-4)
+          : "***";
+        console.log(`✅ Loaded env: ${key}=${masked}`);
+      } else if (key === "SALEOR_API_URL") {
+        console.log(`✅ Loaded env: ${key}=${value}`);
+      } else {
+        console.log(`✅ Loaded env: ${key}`);
+      }
+    }
+    
+    console.log("📦 Environment variables loaded from .dev.vars");
+    
+    // Check Saleor configuration status
+    const saleorUrl = globalThis.SALEOR_API_URL;
+    const saleorToken = globalThis.SALEOR_TOKEN;
+    
+    if (saleorUrl && saleorToken) {
+      console.log("\n🎉 Saleor API is configured:");
+      console.log(`   URL: ${saleorUrl}`);
+      console.log(`   Token: ${saleorToken.slice(0, 8)}...${saleorToken.slice(-4)}`);
+      console.log("   ✅ Will fetch REAL data from Saleor");
+    } else {
+      console.log("\n⚠️  Saleor API is NOT fully configured:");
+      console.log(`   SALEOR_API_URL: ${saleorUrl ? "✅ set" : "❌ missing"}`);
+      console.log(`   SALEOR_TOKEN: ${saleorToken ? "✅ set" : "❌ missing"}`);
+      console.log("   ⚠️  Will use MOCK data instead");
+    }
+  } catch (error) {
+    console.error("❌ Failed to load .dev.vars:", error);
+  }
+}
+
+// Load environment variables BEFORE importing the worker
+loadEnvVars();
 
 // Dynamically import the bundled worker
 const bundledWorker = await import("../dist/bundled.js");

@@ -82,8 +82,10 @@ export const PRODUCTS_QUERY = `
             name
             pricing {
               price {
-                amount
-                currency
+                gross {
+                  amount
+                  currency
+                }
               }
             }
           }
@@ -409,18 +411,17 @@ export async function fetchDishes(
         continue;
       }
 
-      // Saleor does not provide a direct way to filter products by restaurant (collection).
-      // We set the restaurantId on dish objects for API consistency, but do not filter by it.
-
-      // Get first variant with pricing, or use default values
       const firstVariant =
         Array.isArray(product.variants) && product.variants.length > 0
           ? product.variants[0]
           : null;
-      const price = firstVariant?.pricing?.price?.amount
-        ? parseFloat(firstVariant.pricing.price.amount)
-        : 0;
-      const currency = firstVariant?.pricing?.price?.currency || "USD";
+
+      let price = 0;
+      let currency = "USD";
+      if (firstVariant?.pricing?.price?.gross) {
+        price = parseFloat(firstVariant.pricing.price.gross.amount) || 0;
+        currency = firstVariant.pricing.price.gross.currency || "USD";
+      }
 
       dishes.push({
         id: product.id,
