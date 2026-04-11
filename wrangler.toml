@@ -26,11 +26,11 @@ cwd = "."
 vars = { DEBUG = "true" }
 
 # Production environment
+# [env.production]
+# vars = { DEBUG = "true", SALEOR_API_URL = "https://store-ci6ixe6i.saleor.cloud/graphql/"}
 [env.production]
 name = "saleor-tma-backend"
-vars = { DEBUG = "true", SALEOR_API_URL = "https://store-ci6ixe6i.saleor.cloud/graphql/"}
-# [env.production]
-# vars = { DEBUG = "true" }
+vars = { DEBUG = "false" }
 
 # Production secrets (set via wrangler secret put)
 # wrangler secret put SALEOR_API_URL
