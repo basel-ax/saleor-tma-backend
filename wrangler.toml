@@ -4,7 +4,7 @@
 
 name = "saleor-tma-backend"
 main = "worker/dist/bundled.js"
-compatibility_date = "2026-03-06"
+compatibility_date = "2024-01-01"
 workers_dev = true
 
 # Build configuration for TypeScript
@@ -12,14 +12,11 @@ workers_dev = true
 command = "pnpm install && pnpm run build"
 cwd = "."
 
-# Environment variables exposed to the worker
-# These are set via `wrangler secret put` or Cloudflare Dashboard
 [vars]
-# SALEOR_API_URL - GraphQL endpoint for Saleor e-commerce platform
-# SALEOR_TOKEN - API token for Saleor authentication
-# BACKEND_BASE_URL - Base URL for the backend (used for webhooks, redirects)
-# TELEGRAM_BOT_TOKEN - Bot token for HMAC validation of Telegram Init Data
-# DEBUG - Enable debug logging (true/false)
+DEBUG = "false"
+# IMPORTANT: Set production secrets via wrangler CLI:
+# wrangler secret put SALEOR_API_URL
+# wrangler secret put SALEOR_TOKEN
 
 # Development environment
 [env.dev]

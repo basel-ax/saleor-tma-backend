@@ -267,27 +267,18 @@ interface Env {
 // Register the fetch event listener only in Cloudflare Workers environment
 if (typeof addEventListener === "function") {
   addEventListener("fetch", (event: FetchEvent) => {
-    const cfEnv = (event as any).env;
+    // Cloudflare Workers injects environment variables into self/globalThis
+    // (not event.env in service-worker format)
+    const saleorApiUrl = (self as any).SALEOR_API_URL;
+    const saleorToken = (self as any).SALEOR_TOKEN;
+    const debugVal = (self as any).DEBUG;
     
-    // ALWAYS read from env on EVERY request (different isolates may not share state)
-    const saleorApiUrl = cfEnv?.SALEOR_API_URL;
-    const saleorToken = cfEnv?.SALEOR_TOKEN;
-    const debugVal = cfEnv?.DEBUG;
-    
-    // Set debug mode from environment
     setDebugMode(debugVal === "true");
     
-    // ALWAYS initialize Saleor client with env
     initializeSaleorClient({
       SALEOR_API_URL: saleorApiUrl,
       SALEOR_TOKEN: saleorToken,
     });
-    
-    // Log on every request (will show in worker logs)
-    console.log(">>> Request received");
-    console.log("  SALEOR_API_URL:", saleorApiUrl ? "SET" : "NOT SET");
-    console.log("  SALEOR_TOKEN:", saleorToken ? "SET" : "NOT SET");
-    console.log("  isSaleorConfigured:", isSaleorConfigured());
     
     event.respondWith(handleRequest(event.request));
   });

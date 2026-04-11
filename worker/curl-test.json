@@ -1,0 +1,20 @@
+{
+  data:
+  {
+    restaurants:
+    [{
+        categories:
+        []
+        deliveryLocations:
+        []
+        description: string,
+        id: string,
+        imageUrl: url,
+        name: string,
+        tags:
+        [
+          string
+        ]
+      }] (2)
+  }
+}
