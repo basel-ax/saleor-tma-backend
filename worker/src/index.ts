@@ -32,6 +32,8 @@ import {
   removeFromCartSync,
   clearCartSync,
 } from "./cart";
+import { initializeSaleorClient, isSaleorConfigured, getSaleorClient } from "./saleorClient";
+import { setDebugMode } from "./logger";
 
 // CORS headers for preflight and actual requests
 // Allow any localhost port during development (5173, 5174, etc.)
@@ -253,9 +255,40 @@ function resolveClearCart(context: GraphQLContext): {
   };
 }
 
+// Environment type for Cloudflare Workers
+interface Env {
+  SALEOR_API_URL?: string;
+  SALEOR_TOKEN?: string;
+  TELEGRAM_BOT_TOKEN?: string;
+  DEBUG?: string;
+  CARTS?: KVNamespace;
+}
+
 // Register the fetch event listener only in Cloudflare Workers environment
 if (typeof addEventListener === "function") {
-  addEventListener("fetch", (event: any) => {
+  addEventListener("fetch", (event: FetchEvent) => {
+    const cfEnv = (event as any).env;
+    
+    // ALWAYS read from env on EVERY request (different isolates may not share state)
+    const saleorApiUrl = cfEnv?.SALEOR_API_URL;
+    const saleorToken = cfEnv?.SALEOR_TOKEN;
+    const debugVal = cfEnv?.DEBUG;
+    
+    // Set debug mode from environment
+    setDebugMode(debugVal === "true");
+    
+    // ALWAYS initialize Saleor client with env
+    initializeSaleorClient({
+      SALEOR_API_URL: saleorApiUrl,
+      SALEOR_TOKEN: saleorToken,
+    });
+    
+    // Log on every request (will show in worker logs)
+    console.log(">>> Request received");
+    console.log("  SALEOR_API_URL:", saleorApiUrl ? "SET" : "NOT SET");
+    console.log("  SALEOR_TOKEN:", saleorToken ? "SET" : "NOT SET");
+    console.log("  isSaleorConfigured:", isSaleorConfigured());
+    
     event.respondWith(handleRequest(event.request));
   });
 }

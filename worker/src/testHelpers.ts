@@ -390,13 +390,19 @@ export interface TestConfig {
 }
 
 /**
+ * Production URL for Saleor TMA Backend
+ * This is the default for production autotests
+ */
+export const PRODUCTION_URL = "https://saleor-tma-backend.live-nature.net/graphql";
+
+/**
  * Get test configuration from environment
  * Note: Uses globalThis for Cloudflare Worker compatibility
  */
 export function getTestConfig(): TestConfig {
   const env = typeof globalThis !== "undefined" ? (globalThis as any) : {};
   return {
-    baseUrl: env.SPEC_KIT_BASE_URL || "http://localhost:8787",
+    baseUrl: env.SPEC_KIT_BASE_URL || PRODUCTION_URL,
     validInitData: VALID_INIT_DATA,
   };
 }

@@ -48,9 +48,13 @@ export class SaleorClient {
       "Content-Type": "application/json",
     };
 
-    // Add authorization header if token is available
     if (this.token) {
       headers["Authorization"] = `Bearer ${this.token}`;
+    }
+
+    if (isDebugModeEnabled()) {
+      console.log("[SALEOR] Calling API:", this.apiUrl);
+      console.log("[SALEOR] Query:", query.substring(0, 200));
     }
 
     try {
@@ -78,7 +82,13 @@ export class SaleorClient {
         };
       }
 
-      return await response.json();
+      const json = await response.json();
+      
+      if (isDebugModeEnabled()) {
+        console.log("[SALEOR] Response:", JSON.stringify(json).substring(0, 500));
+      }
+      
+      return json;
     } catch (error) {
       logger.error("saleor_network_error", {
         error: error instanceof Error ? error.message : "Unknown error",
@@ -159,50 +169,83 @@ export const ORDER_CREATE_MUTATION = `
   }
 `;
 
+
+
+// Module-level variables for client state
+let saleorClientInstance: SaleorClient | null = null;
+let configuredUrl: string | null = null;
+
 /**
- * Check if Saleor client is configured
+ * Initialize Saleor client with environment configuration
+ * Also stores in globalThis for access throughout the worker lifecycle
+ */
+export function initializeSaleorClient(env: {
+  SALEOR_API_URL?: string;
+  SALEOR_TOKEN?: string;
+}): void {
+  console.log(">>> initializeSaleorClient called");
+  console.log("  SALEOR_API_URL:", env.SALEOR_API_URL);
+  console.log("  SALEOR_TOKEN:", env.SALEOR_TOKEN ? "SET" : "unset");
+  
+  // Store in globalThis for access from anywhere
+  (globalThis as any).SALEOR_API_URL = env.SALEOR_API_URL;
+  (globalThis as any).SALEOR_TOKEN = env.SALEOR_TOKEN;
+  
+  if (env.SALEOR_API_URL && env.SALEOR_TOKEN) {
+    saleorClientInstance = new SaleorClient({
+      apiUrl: env.SALEOR_API_URL,
+      token: env.SALEOR_TOKEN,
+    });
+    configuredUrl = env.SALEOR_API_URL;
+    console.log("  >>> SaleorClient CREATED, url:", configuredUrl);
+  } else {
+    saleorClientInstance = null;
+    configuredUrl = null;
+    console.log("  >>> SaleorClient NOT created - missing config");
+  }
+}
+
+/**
+ * Check if Saleor is configured - checks both module instance and globalThis
  */
 export function isSaleorConfigured(): boolean {
-  if (typeof globalThis !== "undefined") {
-    const saleorUrl = (globalThis as any).SALEOR_API_URL as string | undefined;
-    const saleorToken = (globalThis as any).SALEOR_TOKEN as string | undefined;
-    if (isDebugModeEnabled()) {
-      console.log("DEBUG: SALEOR_API_URL from globalThis:", saleorUrl);
-      console.log(
-        "DEBUG: SALEOR_TOKEN from globalThis:",
-        saleorToken ? `set (length: ${saleorToken.length})` : "unset",
-      );
-    }
-    return !!(saleorUrl && saleorToken);
+  // Check module instance first
+  if (saleorClientInstance) return true;
+  
+  // Fallback: lazy init from globalThis
+  const url = (globalThis as any).SALEOR_API_URL;
+  const token = (globalThis as any).SALEOR_TOKEN;
+  
+  if (url && token) {
+    saleorClientInstance = new SaleorClient({ apiUrl: url, token });
+    configuredUrl = url;
+    return true;
   }
+  
   return false;
 }
 
 /**
- * Get Saleor client instance from environment
+ * Get Saleor client instance
  */
 export function getSaleorClient(): SaleorClient | null {
-  if (typeof globalThis !== "undefined") {
-    const saleorUrl = (globalThis as any).SALEOR_API_URL as string | undefined;
-    const saleorToken = (globalThis as any).SALEOR_TOKEN as string | undefined;
-    if (isDebugModeEnabled()) {
-      console.log(
-        "DEBUG: getSaleorClient - SALEOR_API_URL from globalThis:",
-        saleorUrl,
-      );
-      console.log(
-        "DEBUG: getSaleorClient - SALEOR_TOKEN from globalThis:",
-        saleorToken ? `set (length: ${saleorToken.length})` : "unset",
-      );
-    }
-    if (saleorUrl && saleorToken) {
-      return new SaleorClient({
-        apiUrl: saleorUrl,
-        token: saleorToken,
-      });
+  // Lazy init from globalThis if module instance is null
+  if (!saleorClientInstance) {
+    const url = (globalThis as any).SALEOR_API_URL;
+    const token = (globalThis as any).SALEOR_TOKEN;
+    if (url && token) {
+      saleorClientInstance = new SaleorClient({ apiUrl: url, token });
+      configuredUrl = url;
     }
   }
-  return null;
+  return saleorClientInstance;
+}
+
+/**
+ * Get configured Saleor URL for debugging
+ */
+export function getConfiguredUrl(): string | null {
+  return configuredUrl;
 }
 
 // ============================================================

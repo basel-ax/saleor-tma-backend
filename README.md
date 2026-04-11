@@ -1,5 +1,26 @@
 # Telegram TMA GraphQL Backend - Documentation Index
 
+## Table of Contents
+
+- [Overview](#overview)
+- [Core Features](#core-features)
+- [Development Setup](#development-setup)
+  - [Prerequisites](#prerequisites)
+  - [Local Development](#local-development)
+  - [Quick Start](#quick-start)
+  - [Running Tests](#running-tests)
+- [Deployment](#deployment)
+- [Production Autotest](#production-autotest)
+- [Spec-to-Code Reference](#spec-to-code-reference)
+- [GraphQL Schema Reference](#graphql-schema-reference)
+- [Data Flow Reference](#data-flow-reference)
+- [Key Concepts](#key-concepts)
+- [Schema \& Type Definitions](#schema--type-definitions)
+- [GraphQL Error Reference](#graphql-error-reference)
+- [What's Next](#whats-next)
+
+---
+
 ## Overview
 
 This is the central documentation hub for the Telegram Mini App GraphQL backend built on Cloudflare Workers. The backend serves as a BFF (Backend-for-Frontend) between the Telegram Mini App frontend and Saleor's order-management API.
@@ -228,6 +249,31 @@ If using Cloudflare Pages instead of Workers:
 - Go to Cloudflare Dashboard → Workers & Pages → Select your project
 - Go to "Deployments" tab
 - Click "Retry deployment" to re-deploy from a specific commit
+
+---
+
+## Production Autotest
+
+Run automated tests against the production endpoint to verify Saleor integration.
+
+```bash
+# Run production autotest
+cd worker && pnpm exec tsx src/saleorProdAutotest.ts
+```
+
+**Tests performed:**
+1. Saleor Configuration Check - Endpoint connectivity
+2. Restaurants Query - Fetches restaurants from Saleor collections
+3. Categories Query - Fetches categories from productTypes
+4. Dishes Query - Fetches dishes with pricing
+5. Cart Operations - Add to cart, verify, clear
+
+**Output:**
+- JSON results saved to `tmp/prod/*.json` (in project directory)
+- Individual test results: `test-{name}-{timestamp}.json`
+- Summary file: `summary-{timestamp}.json`
+
+**Note:** The autotest automatically detects whether the endpoint returns real Saleor data vs mock data (via `saleorDataDetected` field in results). If the production endpoint is returning mock data, ensure `SALEOR_API_URL` and `SALEOR_TOKEN` secrets are properly configured.
 
 ---
 

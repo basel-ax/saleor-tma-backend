@@ -41,13 +41,15 @@ function createLogEntry(
   };
 }
 
+// Debug mode flag - set via setDebugMode() from Cloudflare Workers env
+let debugMode = false;
+
+export function setDebugMode(enabled: boolean): void {
+  debugMode = enabled;
+}
+
 const isDebugModeEnabled = () => {
-  try {
-    // @ts-ignore
-    return process.env.DEBUG_MODE === "true";
-  } catch {
-    return false;
-  }
+  return debugMode;
 };
 
 export { isDebugModeEnabled };
