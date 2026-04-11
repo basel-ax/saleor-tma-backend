@@ -17,3 +17,7 @@ TELEGRAM_BOT_TOKEN=your-telegram-bot-token
 
 # Optional: Enable debug logging
 DEBUG=false
+
+# Production backend URL for autotest
+# Can be workers.dev URL or custom domain
+PRODUCTION_URL=https://saleor-tma-backend.live-nature.net/graphql

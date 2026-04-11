@@ -11,12 +11,12 @@
 import { mkdir, writeFile, access } from "fs/promises";
 import { dirname, join } from "path";
 import { fileURLToPath } from "url";
+import { PRODUCTION_URL } from "./testHelpers";
 
 // ============================================================
 // Configuration
 // ============================================================
 
-const PRODUCTION_URL = "https://saleor-tma-backend.live-nature.net/graphql";
 const OUTPUT_DIR = join(dirname(fileURLToPath(import.meta.url)), "../../tmp/prod");
 
 // Valid Telegram init data for authentication

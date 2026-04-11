@@ -391,9 +391,12 @@ export interface TestConfig {
 
 /**
  * Production URL for Saleor TMA Backend
- * This is the default for production autotests
+ * Set via PRODUCTION_URL env var or use default
+ * Can be set in .dev.vars for local development
  */
-export const PRODUCTION_URL = "https://saleor-tma-backend.live-nature.net/graphql";
+export const PRODUCTION_URL = typeof process !== "undefined" && process.env?.PRODUCTION_URL
+  ? process.env.PRODUCTION_URL
+  : "https://saleor-tma-backend.live-nature.net/graphql";
 
 /**
  * Get test configuration from environment
