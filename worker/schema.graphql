@@ -61,6 +61,7 @@ type Restaurant {
 type Category {
   id: ID!
   name: String!
+  imageUrl: String!
 }
 
 type Dish {

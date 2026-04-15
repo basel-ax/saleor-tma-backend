@@ -54,8 +54,8 @@ export const TEST_DISHES = {
 };
 
 export const TEST_CATEGORIES = {
-  CAT_A: { id: "catA", name: "Pizzas" },
-  CAT_B: { id: "catB", name: "Nigiri" },
+  CAT_A: { id: "catA", name: "Pizzas", imageUrl: "https://example.com/pizzas.jpg" },
+  CAT_B: { id: "catB", name: "Nigiri", imageUrl: "https://example.com/nigiri.jpg" },
 };
 
 // ============================================================
@@ -84,6 +84,7 @@ export function buildCategory(overrides: Partial<Category> = {}): Category {
   return {
     id: TEST_CATEGORIES.CAT_A.id,
     name: "Test Category",
+    imageUrl: "https://example.com/category.jpg",
     ...overrides,
   };
 }
@@ -247,6 +248,7 @@ export const QUERY_RESTAURANT_CATEGORIES = `
     restaurantCategories(restaurantId: $restaurantId) {
       id
       name
+      imageUrl
     }
   }
 `;

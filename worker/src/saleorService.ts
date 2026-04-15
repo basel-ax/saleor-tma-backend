@@ -18,6 +18,9 @@ import { TEST_RESTAURANTS, TEST_DISHES, TEST_CATEGORIES } from "./testHelpers";
 export interface SaleorProductType {
   id: string;
   name: string;
+  backgroundImage?: {
+    url: string;
+  } | null;
 }
 
 /**
@@ -105,6 +108,9 @@ export const PRODUCT_TYPES_QUERY = `
         node {
           id
           name
+          backgroundImage {
+            url
+          }
         }
       }
     }
@@ -306,6 +312,7 @@ export async function fetchCategories(
       categories.push({
         id: pt.id,
         name: pt.name,
+        imageUrl: pt.backgroundImage?.url || "",
       });
     }
 
@@ -482,6 +489,7 @@ function getMockCategories(restaurantId?: string): Category[] {
     return {
       id: cat.id,
       name: cat.name,
+      imageUrl: cat.imageUrl || "",
     };
   });
 

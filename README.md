@@ -84,7 +84,7 @@ curl -X POST http://localhost:8787/graphql \
 curl -X POST http://localhost:8787/graphql \
   -H "Content-Type: application/json" \
   -H "X-Telegram-Init-Data: hash=test&auth_date=$(date +%s)&user={\"id\":\"12345\",\"first_name\":\"Test\"}" \
-  -d '{"query": "{ categoryDishes(restaurantId: \"rest1\", categoryId: \"cat1\") { id name price } }"}'
+  -d '{"query": "{ categoryDishes(restaurantId: \"rest1\", categoryId: \"cat1\") { id name description price } }"}'
 ```
 
 #### Option 2: Using Wrangler (Original)

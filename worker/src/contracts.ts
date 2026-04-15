@@ -84,6 +84,7 @@ export interface Category {
   id: string;
   restaurantId?: string;
   name: string;
+  imageUrl?: string;
 }
 
 export interface Dish {

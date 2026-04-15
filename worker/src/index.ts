@@ -103,16 +103,38 @@ async function resolveDishes(
   );
   const contractDishes = await fetchDishes(categoryId);
   // Map contract dishes to local dish format
-  return contractDishes.map((contractDish) => ({
-    id: contractDish.id,
-    restaurantId: contractDish.restaurantId,
-    categoryId: contractDish.categoryId,
-    name: contractDish.name,
-    description: contractDish.description,
-    imageUrl: contractDish.imageUrl,
-    price: contractDish.price,
-    currency: contractDish.currency,
-  }));
+  return contractDishes.map((contractDish) => {
+    // Extract text from description if it's in the JSON format
+    let description = contractDish.description;
+    if (description && typeof description === 'string') {
+      try {
+        const parsed = JSON.parse(description);
+        if (
+          parsed.blocks &&
+          Array.isArray(parsed.blocks) &&
+          parsed.blocks.length > 0 &&
+          parsed.blocks[0].data &&
+          typeof parsed.blocks[0].data.text === 'string'
+        ) {
+          description = parsed.blocks[0].data.text;
+        }
+      } catch (e) {
+        // If parsing fails, keep the original description
+        console.warn('Failed to parse description JSON:', e);
+      }
+    }
+    
+    return {
+      id: contractDish.id,
+      restaurantId: contractDish.restaurantId,
+      categoryId: contractDish.categoryId,
+      name: contractDish.name,
+      description: description,
+      imageUrl: contractDish.imageUrl,
+      price: contractDish.price,
+      currency: contractDish.currency,
+    };
+  });
 }
 
 function resolvePlaceOrder(
