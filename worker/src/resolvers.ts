@@ -1,6 +1,7 @@
 // Phase 2: GraphQL Resolvers with Auth Context
 // Resolvers receive GraphQLContext with authenticated user info
 // Aligns with specs/05-telegram-auth.md
+// Phase 10: Channel entity support - internal channelId, GraphQL backward-compatible restaurantId
 
 import {
   Restaurant,
@@ -30,12 +31,32 @@ import {
   OrderStatus,
 } from "./saleorOrder";
 import { forbiddenError, badUserInputError, internalError } from "./errors";
-import { requireRead, requireWrite } from "./auth";
+import { requireRead, requireWrite, requireSuperadmin, isSuperadmin as checkIsSuperadmin } from "./auth";
 import {
   fetchRestaurants,
   fetchCategories,
   fetchDishes,
+  fetchChannels,
 } from "./saleorService";
+import {
+  getChannelAdmin,
+  setChannelAdmin,
+  removeChannelAdmin,
+  getUserChannels,
+  toChannelAdminInfo,
+} from "./channelAdmin";
+import {
+  LinkChannelInput,
+  UnlinkChannelInput,
+} from "./contracts";
+import {
+  createDish,
+  updateDish,
+  updateStock,
+  updateStoreDescription,
+  isChannelAdmin,
+} from "./products";
+import { badUserInputError } from "./errors";
 
 /**
  * Query resolvers with auth context
@@ -99,6 +120,80 @@ const queryResolvers = {
       `[Resolver] categoryDishes for ${categoryId}, restaurant ${restaurantId}, user ${context.auth.userId}`,
     );
     return await fetchDishes(categoryId, restaurantId);
+  },
+
+  // ============================================================
+  // Phase 10: Superadmin & Channel Admin Query Resolvers
+  // ============================================================
+
+  /**
+   * Check if current user is superadmin
+   */
+  isSuperadmin: async (
+    _: any,
+    __: any,
+    context: GraphQLContext,
+  ): Promise<boolean> => {
+    if (!context.auth.valid) {
+      return false;
+    }
+    return checkIsSuperadmin(context.auth.userId);
+  },
+
+  /**
+   * Get channel admin info for a restaurant
+   */
+  channelAdmin: async (
+    _: any,
+    args: { restaurantId: string },
+    context: GraphQLContext,
+  ): Promise<{
+    restaurantId: string;
+    telegramUserId: string;
+    assignedAt: string;
+    assignedBy: string;
+  } | null> => {
+    const auth = requireRead(context.auth);
+    if (!auth.valid) {
+      logger.authFailure("permission_denied", context.auth.userId);
+      throw forbiddenError();
+    }
+    const admin = await getChannelAdmin(args.restaurantId);
+    return admin ? toChannelAdminInfo(admin) : null;
+  },
+
+  /**
+   * Get all channels where current user is admin
+   */
+  myChannels: async (
+    _: any,
+    __: any,
+    context: GraphQLContext,
+  ): Promise<
+    Array<{
+      id: string;
+      name: string;
+      description?: string;
+      hasAdmin: boolean;
+    }>
+  > => {
+    const auth = requireRead(context.auth);
+    if (!auth.valid) {
+      logger.authFailure("permission_denied", context.auth.userId);
+      throw forbiddenError();
+    }
+    const userChannels = await getUserChannels(context.auth.userId);
+    const channels = await fetchChannels();
+
+    return userChannels.map((uc) => {
+      const channel = channels.find((c) => c.id === uc.restaurantId);
+      return {
+        id: uc.restaurantId,
+        name: channel?.name || uc.restaurantId,
+        description: channel?.description,
+        hasAdmin: true,
+      };
+    });
   },
 
   // ============================================================
@@ -384,6 +479,253 @@ const mutationResolvers = {
       items: [],
       total: 0,
       itemCount: 0,
+    };
+  },
+
+  // ============================================================
+  // Phase 10: Superadmin & Channel Admin Mutation Resolvers
+  // ============================================================
+
+  /**
+   * Link channel to telegram user as admin (superadmin only)
+   */
+  linkChannelToTelegram: async (
+    _: any,
+    args: { input: LinkChannelInput },
+    context: GraphQLContext,
+  ): Promise<{
+    success: boolean;
+    channelAdmin: {
+      restaurantId: string;
+      telegramUserId: string;
+      assignedAt: string;
+      assignedBy: string;
+    } | null;
+  }> => {
+    const auth = requireSuperadmin(context.auth);
+    if (!auth.valid) {
+      logger.authFailure("superadmin_required", context.auth.userId);
+      throw forbiddenError();
+    }
+    const { restaurantId, telegramUserId } = args.input;
+    console.log(
+      `[Resolver] linkChannelToTelegram: ${restaurantId} -> ${telegramUserId} by superadmin ${context.auth.userId}`,
+    );
+
+    const admin = await setChannelAdmin(
+      restaurantId,
+      telegramUserId,
+      context.auth.userId,
+    );
+
+    return {
+      success: true,
+      channelAdmin: toChannelAdminInfo(admin),
+    };
+  },
+
+  /**
+   * Unlink channel from telegram admin (superadmin only)
+   */
+  unlinkChannel: async (
+    _: any,
+    args: { input: UnlinkChannelInput },
+    context: GraphQLContext,
+  ): Promise<{ success: boolean }> => {
+    const auth = requireSuperadmin(context.auth);
+    if (!auth.valid) {
+      logger.authFailure("superadmin_required", context.auth.userId);
+      throw forbiddenError();
+    }
+    const { restaurantId } = args.input;
+    console.log(
+      `[Resolver] unlinkChannel: ${restaurantId} by superadmin ${context.auth.userId}`,
+    );
+
+    await removeChannelAdmin(restaurantId);
+
+    return { success: true };
+  },
+
+  // ============================================================
+  // Phase 10: Product Management Mutations
+  // ============================================================
+
+  createDish: async (
+    _: any,
+    args: { input: any },
+    context: GraphQLContext,
+  ): Promise<any> => {
+    const auth = requireRead(context.auth);
+    if (!auth.valid) {
+      logger.authFailure("permission_denied", context.auth.userId);
+      throw forbiddenError();
+    }
+    const { input } = args;
+    const { restaurantId, name, description, price, currency, categoryId, imageUrl } = input;
+
+    const isAdmin = await isChannelAdmin(context.auth.userId, restaurantId);
+    if (!isAdmin) {
+      logger.authFailure("channel_admin_required", context.auth.userId);
+      throw forbiddenError();
+    }
+
+    console.log(
+      `[Resolver] createDish: ${name} for ${restaurantId} by ${context.auth.userId}`,
+    );
+
+    const product = createDish({
+      name,
+      description,
+      price,
+      currency,
+      categoryId,
+      restaurantId,
+      imageUrl,
+    });
+
+    return {
+      success: true,
+      dish: {
+        id: product.id,
+        name: product.name,
+        description: product.description,
+        price: product.price,
+        currency: product.currency,
+        categoryId: product.categoryId,
+        imageUrl: product.imageUrl,
+      },
+    };
+  },
+
+  /**
+   * Update an existing dish (channel admin only)
+   */
+  updateDish: async (
+    _: any,
+    args: { input: any },
+    context: GraphQLContext,
+  ): Promise<any> => {
+    const auth = requireRead(context.auth);
+    if (!auth.valid) {
+      logger.authFailure("permission_denied", context.auth.userId);
+      throw forbiddenError();
+    }
+    const { input } = args;
+    const { dishId, restaurantId, name, description, price, currency, imageUrl } = input;
+
+    const product = updateDish({
+      dishId,
+      name,
+      description,
+      price,
+      currency,
+      imageUrl,
+    });
+
+    if (!product) {
+      throw badUserInputError("Product not found", "dishId");
+    }
+
+    const isAdmin = await isChannelAdmin(context.auth.userId, restaurantId);
+    if (!isAdmin) {
+      logger.authFailure("channel_admin_required", context.auth.userId);
+      throw forbiddenError();
+    }
+
+    console.log(`[Resolver] updateDish: ${dishId} by ${context.auth.userId}`);
+
+    return {
+      success: true,
+      dish: {
+        id: product.id,
+        name: product.name,
+        description: product.description,
+        price: product.price,
+        currency: product.currency,
+        categoryId: product.categoryId,
+        imageUrl: product.imageUrl,
+      },
+    };
+  },
+
+  /**
+   * Update stock quantity (channel admin only)
+   */
+  updateStock: async (
+    _: any,
+    args: { input: any },
+    context: GraphQLContext,
+  ): Promise<any> => {
+    const auth = requireRead(context.auth);
+    if (!auth.valid) {
+      logger.authFailure("permission_denied", context.auth.userId);
+      throw forbiddenError();
+    }
+    const { input } = args;
+    const { dishId, quantity, restaurantId } = input;
+
+    const product = updateStock({
+      dishId,
+      quantity,
+    });
+
+    if (!product) {
+      throw badUserInputError("Product not found", "dishId");
+    }
+
+    const isAdmin = await isChannelAdmin(context.auth.userId, restaurantId);
+    if (!isAdmin) {
+      logger.authFailure("channel_admin_required", context.auth.userId);
+      throw forbiddenError();
+    }
+
+    console.log(
+      `[Resolver] updateStock: ${dishId} qty=${quantity} by ${context.auth.userId}`,
+    );
+
+    return {
+      success: true,
+      dishId,
+      quantity,
+    };
+  },
+
+  /**
+   * Update store/channel description (channel admin only)
+   */
+  updateStoreDescription: async (
+    _: any,
+    args: { input: any },
+    context: GraphQLContext,
+  ): Promise<any> => {
+    const auth = requireRead(context.auth);
+    if (!auth.valid) {
+      logger.authFailure("permission_denied", context.auth.userId);
+      throw forbiddenError();
+    }
+    const { input } = args;
+    const { restaurantId, description } = input;
+
+    const isAdmin = await isChannelAdmin(context.auth.userId, restaurantId);
+    if (!isAdmin) {
+      logger.authFailure("channel_admin_required", context.auth.userId);
+      throw forbiddenError();
+    }
+
+    console.log(
+      `[Resolver] updateStoreDescription: ${restaurantId} by ${context.auth.userId}`,
+    );
+
+    updateStoreDescription(
+      { restaurantId, description },
+      context.auth.userId,
+    );
+
+    return {
+      success: true,
+      restaurantId,
+      description,
     };
   },
 };

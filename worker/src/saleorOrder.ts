@@ -1,13 +1,14 @@
 // Phase 4: Saleor Order Service
 // Creates orders in Saleor for draft order creation
 // Aligns with task/phase-4-place-order-flow.md
-// Phase 9: Real Saleor integration enabled
+// Phase 10: Channel entity support
 
 import {
   PlaceOrderInput,
   PlaceOrderPayload,
   DeliveryLocation,
   OrderItemInput,
+  Channel,
 } from "./contracts";
 import {
   SaleorClient,
@@ -102,12 +103,13 @@ export async function createSaleorOrder(
   userName?: string,
   userLanguage?: string,
 ): Promise<CreateOrderResult> {
-  // Validate input
-  if (!input.restaurantId) {
+  const channelId = input.channelId || input.restaurantId;
+
+  if (!channelId) {
     return {
       success: false,
-      error: "Restaurant is required",
-      errorCode: "MISSING_RESTAURANT",
+      error: "Channel is required",
+      errorCode: "MISSING_CHANNEL",
     };
   }
 
@@ -119,7 +121,6 @@ export async function createSaleorOrder(
     };
   }
 
-  // Validate delivery location
   if (!input.deliveryLocation?.address) {
     return {
       success: false,
@@ -128,10 +129,9 @@ export async function createSaleorOrder(
     };
   }
 
-  // Check if Saleor is configured
   if (!isSaleorConfigured()) {
     logger.warn("saleor_not_configured", { userId });
-    return createMockOrder(input, userId);
+    return createMockOrder(input, userId, channelId);
   }
 
   try {
@@ -263,35 +263,26 @@ export async function createSaleorOrder(
   }
 }
 
-/**
- * Create mock order when Saleor is not available
- */
 function createMockOrder(
   input: PlaceOrderInput,
   userId: string,
+  channelId?: string,
 ): CreateOrderResult {
   try {
-    // Generate unique order ID (simulates Saleor ID format)
     const orderId = `order:${Date.now()}:${userId}`;
     const orderNumber = mockOrders.size + 1;
 
-    // Create order lines from input items
     const lines = input.items.map((item: OrderItemInput) => ({
       variantId: item.dishId,
       quantity: item.quantity,
       productName: `Dish ${item.dishId}`,
     }));
 
-    // Calculate total (simplified - in real implementation would use actual prices)
-    const totalAmount = lines.reduce(
-      (sum, line) => sum + line.quantity * 10,
-      0,
-    ); // Mock price
+    const totalAmount = lines.reduce((sum, line) => sum + line.quantity * 10, 0);
 
-    // Create Saleor order object
     const order: SaleorOrder = {
       id: orderId,
-      status: "CREATED", // Draft status
+      status: "CREATED",
       total: {
         gross: {
           amount: totalAmount,
@@ -308,15 +299,13 @@ function createMockOrder(
       createdAt: new Date().toISOString(),
     };
 
-    // Store order (in-memory for mock)
     mockOrders.set(orderId, order);
 
-    // Log order creation
     logger.info("mock_order_created", {
       orderId,
       userId,
       orderNumber,
-      restaurantId: input.restaurantId,
+      channelId: channelId || input.restaurantId,
       itemCount: lines.length,
       total: totalAmount,
     });

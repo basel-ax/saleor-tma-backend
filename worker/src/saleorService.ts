@@ -1,6 +1,6 @@
 // Phase 1: Saleor Data Service
 // Fetches real data from Saleor OMS with fallback to mock data
-// Maps Saleor's data model to our Restaurant/Category/Dish entities
+// Maps Saleor's data model to our Channel/Category/Dish entities
 
 import { logger } from "./logger";
 import {
@@ -9,8 +9,8 @@ import {
   isSaleorConfigured,
   SaleorResponse,
 } from "./saleorClient";
-import { Restaurant, Category, Dish } from "./contracts";
-import { TEST_RESTAURANTS, TEST_DISHES, TEST_CATEGORIES } from "./testHelpers";
+import { Channel, Restaurant, Category, Dish } from "./contracts";
+import { TEST_CHANNELS, TEST_DISHES, TEST_CATEGORIES } from "./testHelpers";
 
 /**
  * Saleor Product Type (maps to our Category)
@@ -52,7 +52,7 @@ export interface SaleorProduct {
 }
 
 /**
- * Saleor Collection (maps to our Restaurant)
+ * Saleor Collection (legacy - maps to Restaurant)
  */
 export interface SaleorCollection {
   id: string;
@@ -60,6 +60,26 @@ export interface SaleorCollection {
   backgroundImage: {
     url: string;
   } | null;
+}
+
+/**
+ * Saleor Channel (maps to our Channel entity)
+ */
+export interface SaleorChannel {
+  id: string;
+  slug: string;
+  name: string;
+  isActive: boolean;
+  currencyCode: string;
+  defaultCountry: {
+    code: string;
+    country: string;
+  } | null;
+  warehouses: Array<{
+    id: string;
+    slug: string;
+    name: string;
+  }>;
 }
 
 /**
@@ -118,7 +138,7 @@ export const PRODUCT_TYPES_QUERY = `
 `;
 
 /**
- * GraphQL query for fetching collections (restaurants)
+ * GraphQL query for fetching collections (restaurants - legacy)
  */
 export const COLLECTIONS_QUERY = `
   query Collections {
@@ -137,17 +157,43 @@ export const COLLECTIONS_QUERY = `
 `;
 
 /**
- * Fetch restaurants from Saleor collections
- * Falls back to mock data if Saleor is not configured or on error
+ * GraphQL query for fetching channels (Saleor multichannel)
+ */
+export const CHANNELS_QUERY = `
+  query Channels {
+    channels {
+      id
+      slug
+      name
+      isActive
+      currencyCode
+      defaultCountry {
+        code
+        country
+      }
+      warehouses {
+        id
+        slug
+        name
+      }
+    }
+  }
+`;
+
+/**
+ * Fetch channels from Saleor and map to Restaurant for GraphQL backward compatibility
  */
 export async function fetchRestaurants(): Promise<Restaurant[]> {
-  // Check if Saleor is configured
+  return fetchChannels().then(mapChannelsToRestaurants);
+}
+
+export async function fetchChannels(): Promise<Channel[]> {
   if (!isSaleorConfigured()) {
     logger.info("saleor_service_fallback", {
       reason: "Saleor not configured",
-      dataType: "restaurants",
+      dataType: "channels",
     });
-    return getMockRestaurants();
+    return getMockChannels();
   }
 
   try {
@@ -155,94 +201,89 @@ export async function fetchRestaurants(): Promise<Restaurant[]> {
     if (!client) {
       logger.info("saleor_service_fallback", {
         reason: "Saleor client not available",
-        dataType: "restaurants",
+        dataType: "channels",
       });
-      return getMockRestaurants();
+      return getMockChannels();
     }
 
     const response = await client.execute<{
-      collections: { edges: { node: SaleorCollection }[] };
-    }>(COLLECTIONS_QUERY);
+      channels: SaleorChannel[];
+    }>(CHANNELS_QUERY);
 
     if (response.errors && response.errors.length > 0) {
       logger.error("saleor_service_error", {
         error: response.errors.map((e) => e.message).join(", "),
-        dataType: "restaurants",
+        dataType: "channels",
       });
-      return getMockRestaurants();
+      return getMockChannels();
     }
 
-    const collectionsResponse = response.data?.collections;
+    const channelsResponse = response.data?.channels;
 
-    // Handle malformed response - if collections or edges is not as expected
-    if (!collectionsResponse || !Array.isArray(collectionsResponse.edges)) {
+    if (!channelsResponse || !Array.isArray(channelsResponse)) {
       logger.error("saleor_service_malformed_response", {
-        error: "Invalid collections response structure",
-        dataType: "restaurants",
-        received: collectionsResponse,
+        error: "Invalid channels response structure",
+        dataType: "channels",
+        received: channelsResponse,
       });
-      return getMockRestaurants();
+      return getMockChannels();
     }
 
-    const collections =
-      collectionsResponse.edges
-        .filter(
-          (edge): edge is { node: SaleorCollection } => !!edge && !!edge.node,
-        )
-        .map((edge) => edge.node) || [];
+    const channels: Channel[] = [];
 
-    // Map Saleor collections to our Restaurant format
-    // For now, we'll treat each collection as a restaurant with empty categories
-    // Categories and dishes will be fetched separately
-    const restaurants: Restaurant[] = [];
-
-    for (const collection of collections) {
-      // Skip malformed collection data
-      if (
-        !collection ||
-        typeof collection.id !== "string" ||
-        typeof collection.name !== "string"
-      ) {
-        logger.warn("saleor_service_skipping_malformed_collection", {
-          collection: collection,
-          dataType: "restaurants",
+    for (const ch of channelsResponse) {
+      if (!ch || typeof ch.id !== "string" || typeof ch.name !== "string") {
+        logger.warn("saleor_service_skipping_malformed_channel", {
+          channel: ch,
+          dataType: "channels",
         });
         continue;
       }
 
-      restaurants.push({
-        id: collection.id,
-        name: collection.name,
-        description: "", // Not available in Saleor collections
-        imageUrl: collection.backgroundImage?.url || "", // Map backgroundImage.url to imageUrl
-        tags: [], // Not available in Saleor collections
-        categories: [], // Will be populated when fetchCategories is called
-        deliveryLocations: [], // Not available in Saleor collections, leave empty
+      channels.push({
+        id: ch.id,
+        slug: ch.slug,
+        name: ch.name,
+        isActive: ch.isActive,
+        currencyCode: ch.currencyCode,
+        defaultCountry: ch.defaultCountry
+          ? { code: ch.defaultCountry.code, country: ch.defaultCountry.country }
+          : undefined,
+        warehouses: ch.warehouses,
+        categories: [],
+        deliveryLocations: [],
       });
     }
 
     logger.info("saleor_service_success", {
-      count: restaurants.length,
-      dataType: "restaurants",
+      count: channels.length,
+      dataType: "channels",
     });
-    return restaurants;
+    return channels;
   } catch (error) {
     logger.error("saleor_service_error", {
       error: error instanceof Error ? error.message : "Unknown error",
-      dataType: "restaurants",
+      dataType: "channels",
     });
-    return getMockRestaurants();
+    return getMockChannels();
   }
 }
 
-/**
- * Fetch categories from Saleor product types
- * Note: Saleor does not provide a direct way to filter product types (categories) by restaurant (collection).
- * The restaurantId parameter is accepted for API consistency but is not used for filtering in this implementation.
- * Falls back to mock data if Saleor is not configured or on error.
- */
+function mapChannelsToRestaurants(channels: Channel[]): Restaurant[] {
+  return channels.map((ch) => ({
+    id: ch.id,
+    name: ch.name,
+    description: ch.description,
+    imageUrl: ch.imageUrl,
+    tags: ch.tags,
+    categories: ch.categories,
+    deliveryLocations: ch.deliveryLocations,
+  }));
+}
+
 export async function fetchCategories(
   restaurantId?: string,
+  channelId?: string,
 ): Promise<Category[]> {
   // Check if Saleor is configured
   if (!isSaleorConfigured()) {
@@ -333,16 +374,10 @@ export async function fetchCategories(
   }
 }
 
-/**
- * Fetch dishes from Saleor products, optionally filtered by categoryId
- * Note: Saleor does not provide a direct way to filter products by restaurant (collection).
- * The restaurantId parameter is accepted for API consistency but is not used for filtering in this implementation.
- * For now, we'll set the restaurantId on the dish objects if provided.
- * Falls back to mock data if Saleor is not configured or on error.
- */
 export async function fetchDishes(
   categoryId?: string,
   restaurantId?: string,
+  channelId?: string,
 ): Promise<Dish[]> {
   // Check if Saleor is configured
   if (!isSaleorConfigured()) {
@@ -460,31 +495,25 @@ export async function fetchDishes(
   }
 }
 
-/**
- * Get mock restaurants for development/testing
- */
-function getMockRestaurants(): Restaurant[] {
-  return Object.keys(TEST_RESTAURANTS).map((key) => {
-    const rest = TEST_RESTAURANTS[key as keyof typeof TEST_RESTAURANTS];
+function getMockChannels(): Channel[] {
+  return Object.keys(TEST_CHANNELS).map((key) => {
+    const ch = TEST_CHANNELS[key as keyof typeof TEST_CHANNELS];
     return {
-      id: rest.id,
-      name: rest.name,
-      description: rest.description,
-      imageUrl: rest.imageUrl,
-      tags: rest.tags,
-      categories: [], // Empty categories - will be populated separately
+      id: ch.id,
+      slug: ch.slug || ch.id,
+      name: ch.name,
+      isActive: true,
+      currencyCode: "USD",
+      defaultCountry: undefined,
+      warehouses: [],
+      categories: [],
       deliveryLocations: [],
     };
   });
 }
 
-/**
- * Get mock categories for development/testing, optionally filtered by restaurantId
- */
-function getMockCategories(restaurantId?: string): Category[] {
-  // In mock data, all categories belong to all restaurants for simplicity
-  // In a real implementation, we would have a restaurant -> categories mapping
-  const categories = Object.keys(TEST_CATEGORIES).map((key) => {
+function getMockCategories(_restaurantId?: string): Category[] {
+  return Object.keys(TEST_CATEGORIES).map((key) => {
     const cat = TEST_CATEGORIES[key as keyof typeof TEST_CATEGORIES];
     return {
       id: cat.id,
@@ -493,16 +522,10 @@ function getMockCategories(restaurantId?: string): Category[] {
     };
   });
 
-  // For mock data, we return all categories regardless of restaurantId
-  // since our test data doesn't have restaurant-specific categories
   return categories;
 }
 
-/**
- * Get mock dishes for development/testing, optionally filtered by categoryId
- * Note: Mock data does not filter by restaurantId to match Saleor behavior (restaurantId is set on dish objects but not used for filtering).
- */
-function getMockDishes(categoryId?: string, restaurantId?: string): Dish[] {
+function getMockDishes(categoryId?: string, _restaurantId?: string): Dish[] {
   let dishes = Object.keys(TEST_DISHES).map((key) => {
     const dish = TEST_DISHES[key as keyof typeof TEST_DISHES];
     return {
@@ -513,16 +536,14 @@ function getMockDishes(categoryId?: string, restaurantId?: string): Dish[] {
       currency: "USD",
       categoryId: dish.categoryId,
       imageUrl: "https://example.com/image.jpg",
-      restaurantId: "restA", // Default restaurant ID for mock data
+      restaurantId: restaurantId,
     };
   });
 
-  // Filter by categoryId if provided
   if (categoryId) {
     dishes = dishes.filter((dish) => dish.categoryId === categoryId);
   }
 
-  // Override restaurantId in results if requested (for consistency with service behavior)
   if (restaurantId) {
     dishes = dishes.map((dish) => ({
       ...dish,

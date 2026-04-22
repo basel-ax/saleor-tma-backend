@@ -20,7 +20,13 @@ export enum Permission {
   READ = "read",
   WRITE = "write",
   ADMIN = "admin",
+  SUPERADMIN = "superadmin",
 }
+
+/**
+ * Superadmin Telegram ID (Phase 10)
+ */
+export const SUPERADMIN_TELEGRAM_ID = "198928952";
 
 /**
  * Permission check result
@@ -55,11 +61,35 @@ export function checkPermission(
   return { allowed: true };
 }
 
-/**
- * Check if user has admin permission
- */
 export function isAdmin(userId: string): boolean {
   return checkPermission(userId, Permission.ADMIN).allowed;
+}
+
+/**
+ * Check if user is superadmin
+ */
+export function isSuperadmin(userId: string): boolean {
+  return userId === SUPERADMIN_TELEGRAM_ID;
+}
+
+/**
+ * Require superadmin permission
+ */
+export function requireSuperadmin(auth: AuthContext): AuthContext {
+  if (!auth.valid) {
+    return auth;
+  }
+
+  if (!isSuperadmin(auth.userId)) {
+    logger.authFailure("superadmin_required", auth.userId);
+    return {
+      ...auth,
+      valid: false,
+      errorCode: "FORBIDDEN",
+    };
+  }
+
+  return auth;
 }
 
 /**

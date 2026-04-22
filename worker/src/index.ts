@@ -524,6 +524,112 @@ async function resolveGraphQL(
     return { clearCart: result };
   }
 
+  // Phase 10: Superadmin & Channel Admin Query Resolvers
+  if (query.includes("isSuperadmin")) {
+    const result = await resolvers.Query.isSuperadmin(null, {}, context);
+    return { isSuperadmin: result };
+  }
+
+  if (query.includes("channelAdmin")) {
+    const restaurantId = variables?.restaurantId || "";
+    const result = await resolvers.Query.channelAdmin(
+      null,
+      { restaurantId },
+      context,
+    );
+    return { channelAdmin: result };
+  }
+
+  if (query.includes("myChannels")) {
+    const result = await resolvers.Query.myChannels(null, {}, context);
+    return { myChannels: result };
+  }
+
+  // Phase 10: Superadmin & Channel Admin Mutation Resolvers
+  if (query.includes("linkChannelToTelegram")) {
+    const input = variables?.input || {
+      restaurantId: "",
+      telegramUserId: "",
+    };
+    const result = await resolvers.Mutation.linkChannelToTelegram(
+      null,
+      { input },
+      context,
+    );
+    return { linkChannelToTelegram: result };
+  }
+
+  if (query.includes("unlinkChannel")) {
+    const input = variables?.input || {
+      restaurantId: "",
+    };
+    const result = await resolvers.Mutation.unlinkChannel(
+      null,
+      { input },
+      context,
+    );
+    return { unlinkChannel: result };
+  }
+
+  // Phase 10: Product Management Mutations
+  if (query.includes("createDish")) {
+    const input = variables?.input || {
+      name: "",
+      description: "",
+      price: 0,
+      currency: "USD",
+      categoryId: "",
+      restaurantId: "",
+      imageUrl: "",
+    };
+    const result = await resolvers.Mutation.createDish(
+      null,
+      { input },
+      context,
+    );
+    return { createDish: result };
+  }
+
+  if (query.includes("updateDish")) {
+    const input = variables?.input || {
+      dishId: "",
+    };
+    const inputWithRestaurant = { ...input, restaurantId: input.restaurantId || "" };
+    const result = await resolvers.Mutation.updateDish(
+      null,
+      { input: inputWithRestaurant },
+      context,
+    );
+    return { updateDish: result };
+  }
+
+  if (query.includes("updateStock")) {
+    const input = variables?.input || {
+      dishId: "",
+      quantity: 0,
+      restaurantId: "",
+    };
+    const result = await resolvers.Mutation.updateStock(
+      null,
+      { input },
+      context,
+    );
+    return { updateStock: result };
+  }
+
+  if (query.includes("updateStoreDescription")) {
+    const input = variables?.input || {
+      restaurantId: "",
+      description: "",
+    };
+    const result = await resolvers.Mutation.updateStoreDescription(
+      null,
+      { input },
+      context,
+    );
+    return { updateStoreDescription: result };
+  }
+
   // Unknown operation
   return {};
 }

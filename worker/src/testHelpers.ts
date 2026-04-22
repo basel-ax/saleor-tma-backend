@@ -1,8 +1,10 @@
 // Phase 5: Test Helper Utilities
 // Provides mock data builders and test fixtures for spec-kit autotests
 // Aligns with specs/03-autotests.md
+// Phase 10: Channel entity support
 
 import {
+  Channel,
   Restaurant,
   Category,
   Dish,
@@ -11,20 +13,33 @@ import {
   AuthContext,
 } from "./contracts";
 
-// ============================================================
-// Test Data Constants (from specs/03-autotests.md)
-// ============================================================
+export const TEST_CHANNELS = {
+  CH_A: {
+    id: "channelA",
+    slug: "channel-a",
+    name: "Pizza Place",
+    isActive: true,
+    currencyCode: "USD",
+  },
+  CH_B: {
+    id: "channelB",
+    slug: "channel-b",
+    name: "Sushi House",
+    isActive: true,
+    currencyCode: "USD",
+  },
+};
 
 export const TEST_RESTAURANTS = {
   REST_A: {
-    id: "restA",
+    id: "channelA",
     name: "Pizza Place",
     description: "Test description",
     imageUrl: "https://example.com/image.jpg",
     tags: ["test"],
   },
   REST_B: {
-    id: "restB",
+    id: "channelB",
     name: "Sushi House",
     description: "Japanese cuisine",
     imageUrl: "https://example.com/sushi.jpg",

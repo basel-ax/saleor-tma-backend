@@ -112,8 +112,52 @@ type PlaceOrderPayload {
   estimatedDelivery: String
 }
 
+# ============================================================
+# Phase 10: Superadmin & Channel Admin Types
+# ============================================================
+type ChannelAdminInfo {
+  restaurantId: ID!
+  telegramUserId: ID!
+  assignedAt: String!
+  assignedBy: ID!
+}
+
+type ChannelInfo {
+  id: ID!
+  name: String!
+  description: String
+  hasAdmin: Boolean!
+}
+
+type LinkChannelPayload {
+  success: Boolean!
+  channelAdmin: ChannelAdminInfo
+}
+
+type UnlinkChannelPayload {
+  success: Boolean!
+}
+
+input LinkChannelInput {
+  restaurantId: ID!
+  telegramUserId: ID!
+}
+
+input UnlinkChannelInput {
+  restaurantId: ID!
+}
+
 # All queries require authenticated context
 type Query {
+  # Phase 10: Check if current user is superadmin
+  isSuperadmin: Boolean!
+
+  # Phase 10: Get channel admin info for a restaurant
+  channelAdmin(restaurantId: ID!): ChannelAdminInfo
+
+  # Phase 10: Get all channels where current user is admin
+  myChannels: [ChannelInfo!]!
+}
   # Returns all restaurants
   # AuthContext: userId, name, language available in resolver
   restaurants: [Restaurant!]!
@@ -131,8 +175,82 @@ type Query {
   cart: Cart!
 }
 
+# ============================================================
+# Phase 10: Superadmin & Channel Admin Mutations
+# ============================================================
+
 # All mutations require authenticated context
 type Mutation {
+  # Phase 10: Link channel to telegram user as admin (superadmin only)
+  linkChannelToTelegram(input: LinkChannelInput!): LinkChannelPayload!
+
+  # Phase 10: Unlink channel from telegram admin (superadmin only)
+  unlinkChannel(input: UnlinkChannelInput!): UnlinkChannelPayload!
+
+  # ============================================================
+  # Phase 10: Product Management Mutations
+  # ============================================================
+
+  # Create a new dish (channel admin only)
+  createDish(input: CreateDishInput!): ProductPayload!
+
+  # Update an existing dish (channel admin only)
+  updateDish(input: UpdateDishInput!): ProductPayload!
+
+  # Update stock quantity (channel admin only)
+  updateStock(input: UpdateStockInput!): StockPayload!
+
+  # Update store/channel description (channel admin only)
+  updateStoreDescription(input: UpdateStoreDescriptionInput!): StoreDescriptionPayload!
+}
+
+input CreateDishInput {
+  name: String!
+  description: String!
+  price: Float!
+  currency: String!
+  categoryId: ID!
+  restaurantId: ID!
+  imageUrl: String
+}
+
+input UpdateDishInput {
+  dishId: ID!
+  name: String
+  description: String
+  price: Float
+  currency: String
+  imageUrl: String
+  restaurantId: ID!
+}
+
+input UpdateStockInput {
+  dishId: ID!
+  quantity: Int!
+  restaurantId: ID!
+}
+
+input UpdateStoreDescriptionInput {
+  restaurantId: ID!
+  description: String!
+}
+
+type ProductPayload {
+  success: Boolean!
+  dish: Dish
+}
+
+type StockPayload {
+  success: Boolean!
+  dishId: ID!
+  quantity: Int!
+}
+
+type StoreDescriptionPayload {
+  success: Boolean!
+  restaurantId: ID!
+  description: String!
+}
   # Place an order
   # AuthContext: userId, name, language attached to order
   # Errors: 401 if header missing/invalid, 403 if permissions insufficient

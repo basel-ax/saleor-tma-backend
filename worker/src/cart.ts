@@ -1,7 +1,7 @@
 // Phase 3: Cart Management with Cloudflare KV Persistence
-// Implements cart state with per-session restaurant context
+// Implements cart state with per-session channel context
 // See: task/phase-3-in-memory-cart-and-state.md
-// Phase 9: KV persistence enabled by default for production migration path
+// Phase 10: Channel entity support - internal channelId, GraphQL backward-compatible restaurantId
 
 import {
   CartItem,
@@ -63,9 +63,8 @@ export async function getCart(userId: string): Promise<CartState> {
     }
   }
 
-  // Fallback to memory or create empty cart
   if (!memoryCarts.has(userId)) {
-    memoryCarts.set(userId, { restaurantId: null, items: [] });
+    memoryCarts.set(userId, { channelId: null, restaurantId: null, items: [] });
   }
   return memoryCarts.get(userId)!;
 }
@@ -95,7 +94,7 @@ export async function setCart(userId: string, cart: CartState): Promise<void> {
  * Clear cart for a user (reset to empty, persists to KV)
  */
 export async function clearCart(userId: string): Promise<void> {
-  const cart: CartState = { restaurantId: null, items: [] };
+  const cart: CartState = { channelId: null, restaurantId: null, items: [] };
   await setCart(userId, cart);
 }
 
@@ -110,13 +109,14 @@ export async function addToCart(
 ): Promise<CartState> {
   const cart = await getCart(userId);
 
-  // Handle restaurant switch: clear cart if switching restaurants
-  if (cart.restaurantId && cart.restaurantId !== input.restaurantId) {
+  const targetChannelId = input.channelId || input.restaurantId;
+  const targetId = input.restaurantId;
+
+  if (cart.channelId && targetChannelId && cart.channelId !== targetChannelId) {
     console.log(
-      `[Cart] User ${userId} switching from restaurant ${cart.restaurantId} to ${input.restaurantId}, clearing cart`,
+      `[Cart] User ${userId} switching channel ${cart.channelId} to ${targetChannelId}, clearing cart`,
     );
     await clearCart(userId);
-    // Re-fetch the cleared cart
     const clearedCart = await getCart(userId);
     return addToCartToCart(clearedCart, userId, input);
   }
@@ -152,12 +152,10 @@ function addToCartToCart(
     });
   }
 
-  // Set restaurantId if not set
-  if (!cart.restaurantId) {
-    cart.restaurantId = input.restaurantId;
+  if (!cart.channelId) {
+    cart.channelId = input.channelId || input.restaurantId;
   }
 
-  // Persist and return
   setCart(userId, cart);
   return cart;
 }
@@ -229,35 +227,28 @@ export async function getCartItemCount(userId: string): Promise<number> {
  */
 export function getCartSync(userId: string): CartState {
   if (!memoryCarts.has(userId)) {
-    memoryCarts.set(userId, { restaurantId: null, items: [] });
+    memoryCarts.set(userId, { channelId: null, restaurantId: null, items: [] });
   }
   return memoryCarts.get(userId)!;
 }
 
-/**
- * Set cart synchronously (uses memory fallback)
- */
 export function setCartSync(userId: string, cart: CartState): void {
   memoryCarts.set(userId, cart);
 }
 
-/**
- * Clear cart synchronously (uses memory fallback)
- */
 export function clearCartSync(userId: string): void {
-  memoryCarts.set(userId, { restaurantId: null, items: [] });
+  memoryCarts.set(userId, { channelId: null, restaurantId: null, items: [] });
 }
 
-/**
- * Add to cart synchronously (uses memory fallback)
- */
 export function addToCartSync(
   userId: string,
   input: AddToCartInput,
 ): CartState {
   const cart = getCartSync(userId);
 
-  if (cart.restaurantId && cart.restaurantId !== input.restaurantId) {
+  const targetChannelId = input.channelId || input.restaurantId;
+
+  if (cart.channelId && targetChannelId && cart.channelId !== targetChannelId) {
     clearCartSync(userId);
     const clearedCart = getCartSync(userId);
     return addToCartToCart(clearedCart, userId, input);
